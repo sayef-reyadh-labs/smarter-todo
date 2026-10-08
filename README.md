@@ -33,16 +33,16 @@ A task app for students: keep your own to-do list, and share task lists with you
 
 | Doc | What it covers |
 |---|---|
-| [PRD](docs/01-prd.md) | Goals, features, user stories, milestones |
-| [SRS](docs/02-srs.md) | Functional and non-functional requirements, permissions, acceptance criteria |
-| [TDD](docs/03-tdd.md) | Architecture, data model, API endpoints, auth and security design |
+| [PRD — Product Requirements Document](docs/01-prd.md) | Goals, features, user stories, milestones |
+| [SRS — Software Requirements Specification](docs/02-srs.md) | Functional and non-functional requirements, permissions, acceptance criteria |
+| [TDD — Technical Design Document](docs/03-tdd.md) | Architecture, data model, API endpoints, auth and security design |
 
 ## Project structure
 
 ```
 backend/    FastAPI app (routes under /api)
 frontend/   Vite + React + TypeScript
-docs/       PRD, SRS, TDD
+docs/       PRD, SRS, TDD (product requirements, software requirements, technical design)
 vercel.json Vercel setup: /api/* goes to backend, everything else to frontend
 AGENTS.md   Branch, commit and PR conventions
 ```
@@ -96,7 +96,7 @@ Set them in a local `.env` (never committed) and in Vercel under **Project → S
 | `ACCESS_TOKEN_MINUTES` | Beta | Default `15` |
 | `REFRESH_TOKEN_DAYS` | Beta | Default `7` |
 
-Never commit secrets or `.env` files. See [TDD section 8](docs/03-tdd.md) for the Supabase setup.
+Never commit secrets or `.env` files. See [TDD, section 8](docs/03-tdd.md#8-configuration) for the Supabase setup.
 
 ## Deploy to Vercel
 

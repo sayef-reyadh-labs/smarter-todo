@@ -6,9 +6,17 @@
 | Version | MVP + Beta |
 | Releases | MVP — Mid-term, Beta — Final |
 | Status | Draft |
-| Related docs | [SRS](02-srs.md), [TDD](03-tdd.md) |
+| Related docs | [Software Requirements Specification (SRS)](02-srs.md), [Technical Design Document (TDD)](03-tdd.md) |
 
 This document covers **both releases**. Every goal, feature and story has a **Release** column so it is clear what is built for the mid-term and what is added for the final.
+
+**Documents in this set**
+
+| Short form | Full form | Purpose | File |
+|---|---|---|---|
+| PRD | Product Requirements Document | What we build and why (this document) | [01-prd.md](01-prd.md) |
+| SRS | Software Requirements Specification | Exact requirements, permissions and acceptance criteria | [02-srs.md](02-srs.md) |
+| TDD | Technical Design Document | How we build it: architecture, data model, API | [03-tdd.md](03-tdd.md) |
 
 ## 0. Release plan
 
@@ -165,7 +173,7 @@ Priorities are per release: a Beta "Must" is required for the final, not for the
 
 ### Beta
 - A user can never read, change or delete another user's personal task.
-- Every endpoint enforces the permission matrix in the SRS.
+- Every endpoint enforces the permission matrix in the [SRS, section 3.9](02-srs.md#39-permission-matrix--beta).
 - Group members can work on the same task list; non-members cannot see the group.
 - Passwords are never stored or returned in plain text.
 - A banned user is blocked on their very next request, not only at their next login.
@@ -184,7 +192,7 @@ Priorities are per release: a Beta "Must" is required for the final, not for the
 
 | Milestone | Deliverable |
 |---|---|
-| M1 — Docs | PRD, SRS and TDD (covering MVP and Beta) approved |
+| M1 — Docs | [PRD](01-prd.md), [SRS](02-srs.md) and [TDD](03-tdd.md) (covering MVP and Beta) approved |
 | M2 — Data layer | Task model and database connection |
 | M3 — API | Five CRUD endpoints with validation |
 | M4 — Mid demo | Live on Vercel, tagged `v0.1.0` (MVP) |

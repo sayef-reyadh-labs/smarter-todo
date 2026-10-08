@@ -6,9 +6,17 @@
 | Version | MVP + Beta |
 | Releases | MVP — Mid-term, Beta — Final |
 | Status | Draft |
-| Related docs | [PRD](01-prd.md), [TDD](03-tdd.md) |
+| Related docs | [Product Requirements Document (PRD)](01-prd.md), [Technical Design Document (TDD)](03-tdd.md) |
 
 Every requirement has a **Release** column: **MVP** is built for the mid-term, **Beta** is added for the final.
+
+**Documents in this set**
+
+| Short form | Full form | Purpose | File |
+|---|---|---|---|
+| PRD | Product Requirements Document | What we build and why | [01-prd.md](01-prd.md) |
+| SRS | Software Requirements Specification | Exact requirements, permissions and acceptance criteria (this document) | [02-srs.md](02-srs.md) |
+| TDD | Technical Design Document | How we build it: architecture, data model, API | [03-tdd.md](03-tdd.md) |
 
 ## 1. Introduction
 
@@ -18,7 +26,7 @@ This document lists the requirements for Smarter Todo: the MVP (task CRUD REST A
 ### 1.2 Scope
 - **MVP:** a client can create, list, view, update and delete tasks over HTTP. There are no accounts; all tasks are in one shared list.
 - **Beta:** users sign up and log in, see only their own personal tasks, can share tasks with a team through groups, and admins manage users and roles.
-- Out of scope: see [PRD](01-prd.md) section 5.
+- Out of scope: see [PRD, section 5](01-prd.md#5-scope).
 
 ### 1.3 Definitions
 
@@ -425,7 +433,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 
 ## 6. Traceability
 
-| Story | Requirements | Endpoint (see TDD) | Release |
+| Story | Requirements | Endpoint (see [TDD, section 6](03-tdd.md#6-rest-api-design)) | Release |
 |---|---|---|---|
 | US-01 | FR-01, FR-07 | `POST /api/v1/tasks` | MVP |
 | US-02 | FR-02, FR-03 | `GET /api/v1/tasks` | MVP |

@@ -6,7 +6,7 @@ Instructions for AI coding agents (and humans) working in this repo.
 
 Smarter Todo: FastAPI backend (`backend/`) + Vite/React/TypeScript frontend (`frontend/`), deployed together on Vercel (`vercel.json` routes `/api/*` to the backend).
 
-- Requirements and design live in `docs/`: [PRD](docs/01-prd.md), [SRS](docs/02-srs.md), [TDD](docs/03-tdd.md). Each doc covers both releases; items are marked **MVP** or **Beta**. Read them before implementing a feature.
+- Requirements and design live in `docs/`: [Product Requirements Document (PRD)](docs/01-prd.md), [Software Requirements Specification (SRS)](docs/02-srs.md), [Technical Design Document (TDD)](docs/03-tdd.md). Each doc covers both releases; items are marked **MVP** or **Beta**. Read them before implementing a feature.
 - Releases: **MVP** is demoed before the mid-term (task CRUD REST API only); **Beta** is demoed before the final (auth, RBAC, group tasks, security). Do not build Beta items while MVP work is in progress.
 - Automated tests and CI/CD are out of scope for this semester.
 

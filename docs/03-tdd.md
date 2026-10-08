@@ -6,9 +6,17 @@
 | Version | MVP + Beta |
 | Releases | MVP — Mid-term, Beta — Final |
 | Status | Draft |
-| Related docs | [PRD](01-prd.md), [SRS](02-srs.md) |
+| Related docs | [Product Requirements Document (PRD)](01-prd.md), [Software Requirements Specification (SRS)](02-srs.md) |
 
 Sections and tables are marked **MVP** or **Beta**. Build the MVP parts for the mid-term; the Beta parts extend them for the final.
+
+**Documents in this set**
+
+| Short form | Full form | Purpose | File |
+|---|---|---|---|
+| PRD | Product Requirements Document | What we build and why | [01-prd.md](01-prd.md) |
+| SRS | Software Requirements Specification | Exact requirements, permissions and acceptance criteria | [02-srs.md](02-srs.md) |
+| TDD | Technical Design Document | How we build it: architecture, data model, API (this document) | [03-tdd.md](03-tdd.md) |
 
 ## 1. Overview
 
@@ -324,7 +332,7 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 
 ### 6.2 Endpoints — Beta
 
-"Who" uses the roles from the SRS permission matrix. Every endpoint except auth, health and docs needs `Authorization: Bearer <access_token>` (`401` without it).
+"Who" uses the roles from the [SRS permission matrix (section 3.9)](02-srs.md#39-permission-matrix--beta). Every endpoint except auth, health and docs needs `Authorization: Bearer <access_token>` (`401` without it).
 
 **Auth and profile**
 
@@ -631,5 +639,5 @@ stats = AdminStats(
 | Free-tier project pauses when idle | Check the Supabase dashboard before demos; any API activity keeps it awake |
 | Code deployed before its migration ran (or the reverse) | Always run `alembic upgrade head` before merging a migration; keep migrations additive where possible |
 | JWT secret leaked | Only in Vercel env vars; rotating it logs everyone out (acceptable) |
-| Permission bug exposes another user's data | All permission checks go through the dependencies in section 10.3; review every new route against the SRS permission matrix |
-| No automated tests or CI yet | Review each PR manually against the SRS acceptance criteria; tests and CI are planned after this semester's scope |
+| Permission bug exposes another user's data | All permission checks go through the dependencies in section 10.3; review every new route against the [SRS permission matrix](02-srs.md#39-permission-matrix--beta) |
+| No automated tests or CI yet | Review each PR manually against the [SRS acceptance criteria](02-srs.md#5-acceptance-criteria); tests and CI are planned after this semester's scope |
