@@ -4,7 +4,7 @@
 }
 
 main {
-  max-width: 480px;
+  max-width: 520px;
   margin: 4rem auto;
   padding: 0 1rem;
 }
@@ -14,7 +14,8 @@ form {
   gap: 0.5rem;
 }
 
-input {
+input[type="text"],
+input:not([type]) {
   flex: 1;
   padding: 0.5rem;
 }
@@ -22,6 +23,34 @@ input {
 button {
   padding: 0.5rem 1rem;
   cursor: pointer;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+li span {
+  flex: 1;
+}
+
+.done {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.details {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0 1rem 1rem;
+  margin: 1rem 0;
 }
 
 .error {
