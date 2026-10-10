@@ -2,7 +2,7 @@
 
 A task app for students: keep your own to-do list, and share task lists with your team for group projects. Built as a REST API with FastAPI and a React frontend, deployed on Vercel.
 
-> **Status:** MVP in progress. The app has a todo list backed by a local SQLite database; the full task API from the design docs in [`docs/`](docs) is still to come.
+> **Status:** MVP in progress. The task CRUD API (`/api/v1/tasks`) and an Ant Design frontend work locally with SQLite; accounts, roles and group tasks are planned for the Beta.
 
 ## Features
 
@@ -116,11 +116,12 @@ vercel dev -L
 
 ## Environment variables
 
-Set them in a local `.env` (never committed) and in Vercel under **Project → Settings → Environment Variables**.
+Locally nothing needs to be set: the app uses the SQLite file `backend/smarter_todo.db`. In production (Vercel) the app uses Supabase PostgreSQL. Set variables in Vercel under **Project → Settings → Environment Variables** (a local `.env` is never committed).
 
 | Variable | Needed for | Notes |
 |---|---|---|
-| `DATABASE_URL` | MVP | Database to use. Leave unset locally to use the SQLite file `backend/smarter_todo.db`. In production use a hosted database such as the Supabase transaction pooler URL (`postgresql+psycopg://...:6543/postgres`). Vercel cannot keep a SQLite file between requests, so without it the deployed app loses its data. |
+| `DATABASE_URL` | MVP (production) | Supabase transaction pooler URL (port `6543`), e.g. `postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`. Leave unset locally to use SQLite. Vercel cannot keep a SQLite file between requests, so without a hosted database the deployed app loses its data. |
+| `POSTGRES_URL` | MVP (production) | Set automatically by the Supabase integration on Vercel. Used when `DATABASE_URL` is not set; `postgres://` and the Supabase-only `supa=` parameter are handled for you. |
 | `JWT_SECRET` | Beta | Long random string, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `ACCESS_TOKEN_MINUTES` | Beta | Default `15` |
 | `REFRESH_TOKEN_DAYS` | Beta | Default `7` |
