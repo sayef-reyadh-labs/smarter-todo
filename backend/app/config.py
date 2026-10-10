@@ -3,7 +3,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 # Query parameters that Supabase and Vercel add but libpq (psycopg) rejects.
 _UNSUPPORTED_QUERY_KEYS = {"supa", "pgbouncer"}
