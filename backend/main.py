@@ -3,10 +3,9 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.controllers import task_controller
-from app.core.config import BACKEND_DIR
-from app.core.database import create_db_and_tables
-from app.services.task_service import TaskNotFoundError
+from app.config import BACKEND_DIR
+from app.database import create_db_and_tables
+from app.tasks.router import router as tasks_router
 
 logger = logging.getLogger("smarter_todo")
 
@@ -17,8 +16,7 @@ app = FastAPI(
     redoc_url=None,
 )
 
-app.include_router(task_controller.router)
-app.add_exception_handler(TaskNotFoundError, task_controller.task_not_found_handler)
+app.include_router(tasks_router)
 
 # Run at import (not in a lifespan hook) so it also works on serverless hosts.
 create_db_and_tables()

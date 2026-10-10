@@ -1,9 +1,11 @@
 from collections.abc import Iterator
+from typing import Annotated
 
+from fastapi import Depends
 from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine
 
-from app.core.config import settings
+from app.config import settings
 
 DATABASE_URL = settings.database_url
 
@@ -23,3 +25,6 @@ def create_db_and_tables() -> None:
 def get_session() -> Iterator[Session]:
     with Session(engine) as session:
         yield session
+
+
+SessionDep = Annotated[Session, Depends(get_session)]
