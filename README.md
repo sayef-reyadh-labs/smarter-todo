@@ -2,7 +2,7 @@
 
 A task app for students: keep your own to-do list, and share task lists with your team for group projects. Built as a REST API with FastAPI and a React frontend, deployed on Vercel.
 
-> **Status:** planning. The design docs are in [`docs/`](docs); the app code is still the starter template.
+> **Status:** MVP in progress. The app has a todo list backed by a local SQLite database; the full task API from the design docs in [`docs/`](docs) is still to come.
 
 ## Features
 
@@ -56,6 +56,12 @@ AGENTS.md   Branch, commit and PR conventions
 
 ## Run locally
 
+You need two terminals: one for the backend and one for the frontend. Todos are saved in a local SQLite file, `backend/smarter_todo.db`, which is created automatically on the first run and is not committed.
+
+### First time (initial setup)
+
+Run this once after cloning the repo.
+
 **Backend** (terminal 1):
 
 ```bash
@@ -74,7 +80,28 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Vite forwards `/api` requests to the backend on port 8000. API docs: http://localhost:8000/api/docs (until the MVP code lands, the template serves them at http://localhost:8000/docs).
+### Running again (after the initial setup)
+
+The virtual environment and `node_modules` already exist, so skip the install steps.
+
+**Backend** (terminal 1):
+
+```bash
+cd backend
+.venv\Scripts\Activate.ps1      # macOS/Linux: source .venv/bin/activate
+fastapi dev main.py
+```
+
+**Frontend** (terminal 2):
+
+```bash
+cd frontend
+npm run dev
+```
+
+Run `pip install -r requirements.txt` or `npm install` again only when someone adds or changes a dependency.
+
+Open http://localhost:5173. Vite forwards `/api` requests to the backend on port 8000. API docs: http://localhost:8000/docs.
 
 To run it the way Vercel does instead, from the project root:
 
@@ -85,13 +112,15 @@ vercel dev -L
 
 > Add new Python packages to `backend/requirements.txt`.
 
+> **Reset the data:** stop the backend and delete `backend/smarter_todo.db`.
+
 ## Environment variables
 
 Set them in a local `.env` (never committed) and in Vercel under **Project → Settings → Environment Variables**.
 
 | Variable | Needed for | Notes |
 |---|---|---|
-| `DATABASE_URL` | MVP | Supabase transaction pooler URL (`postgresql+psycopg://...:6543/postgres`). Leave unset locally to use SQLite. |
+| `DATABASE_URL` | MVP | Database to use. Leave unset locally to use the SQLite file `backend/smarter_todo.db`. In production use a hosted database such as the Supabase transaction pooler URL (`postgresql+psycopg://...:6543/postgres`). Vercel cannot keep a SQLite file between requests, so without it the deployed app loses its data. |
 | `JWT_SECRET` | Beta | Long random string, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `ACCESS_TOKEN_MINUTES` | Beta | Default `15` |
 | `REFRESH_TOKEN_DAYS` | Beta | Default `7` |
@@ -117,6 +146,8 @@ Every change starts from a GitHub issue. Branch, commit and pull request rules a
 
 - **"Running scripts is disabled" in PowerShell:** run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 - **`fastapi` not found:** activate the virtual environment first.
+- **`ModuleNotFoundError: sqlmodel`:** run `pip install -r requirements.txt` inside the activated virtual environment.
+- **Todos look wrong or the database is corrupted:** stop the backend and delete `backend/smarter_todo.db`; it is recreated on the next start.
 - **`Request failed: 500` in the app:** the backend isn't running.
 - **App at localhost:8000 shows an old version:** delete `frontend/dist`.
 - **Vercel build fails:** check **Build Logs** in the Vercel dashboard, and make sure `npm run build` works in `frontend/`.
