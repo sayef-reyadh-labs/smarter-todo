@@ -1,132 +1,118 @@
-import { Profiler, useEffect, useState } from "react"
-import Todo, { type TodoData } from "./components/Todo"
+import { PlusOutlined } from "@ant-design/icons"
+import { Alert, App as AntApp, Button, Card, Empty, Layout, List, Typography } from "antd"
+import { useCallback, useEffect, useState } from "react"
+import { PAGE_SIZE, createTask, deleteTask, listTasks, updateTask, type Task, type TaskInput } from "./api"
+import TaskFormModal from "./components/TaskFormModal"
+import TaskItem from "./components/TaskItem"
 
-const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  })
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-  return res.status === 204 ? (undefined as T) : await res.json()
-}
+const messageOf = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong")
 
 const App = () => {
-  // useState stores a value; calling its setter re-renders the component with the new value.
-  const [todos, setTodos] = useState<TodoData[]>([])
-  const [title, setTitle] = useState("")
+  const { message } = AntApp.useApp()
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState("")
-  const [viewingTodo, setViewingTodo] = useState<TodoData | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<Task | null>(null)
 
-  const loadTodos = async () => {
-    setTodos(await request<TodoData[]>("/api/todos"))
-  }
+  // Reload as many rows as are already shown, so edits and deletes keep the list in place.
+  const reload = useCallback(async (shown: number) => {
+    const size = Math.min(Math.max(shown, PAGE_SIZE), 100)
+    const rows = await listTasks(0, size)
+    setTasks(rows)
+    setHasMore(rows.length === size)
+  }, [])
 
-  // useEffect runs after render; the empty [] means only once, so todos load when the page opens.
   useEffect(() => {
     const loadOnOpen = async () => {
       try {
-        await loadTodos()
+        await reload(PAGE_SIZE)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong")
+        setError(messageOf(err))
+      } finally {
+        setLoading(false)
       }
     }
     loadOnOpen()
-  }, [])
+  }, [reload])
 
-  const addTodo = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!title.trim()) return
-    setError("")
+  // Runs a change, refreshes the list and reports the result; returns false on failure.
+  const run = async (action: () => Promise<unknown>, success: string): Promise<boolean> => {
     try {
-      await request("/api/todos", {
-        method: "POST",
-        body: JSON.stringify({ title: title.trim() }),
-      })
-      setTitle("")
-      await loadTodos()
+      await action()
+      await reload(tasks.length)
+      message.success(success)
+      return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      message.error(messageOf(err))
+      return false
     }
   }
 
-  const viewTodo = async (id: number) => {
-    setError("")
+  const loadMore = async () => {
     try {
-      setViewingTodo(await request<TodoData>(`/api/todos/${id}`))
+      const rows = await listTasks(tasks.length, PAGE_SIZE)
+      setTasks((prev) => [...prev, ...rows])
+      setHasMore(rows.length === PAGE_SIZE)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      message.error(messageOf(err))
     }
   }
 
-  const updateTodo = async (todo: TodoData) => {
-    setError("")
-    try {
-      await request(`/api/todos/${todo.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ title: todo.title, completed: todo.completed }),
-      })
-      await loadTodos()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-    }
+  const submitForm = async (data: TaskInput) => {
+    const target = editing
+    const ok = await run(
+      () => (target ? updateTask(target.id, data) : createTask(data)),
+      target ? "Task updated" : "Task added",
+    )
+    if (ok) setFormOpen(false)
   }
 
-  const toggleTodo = (todo: TodoData) =>
-    updateTodo({ ...todo, completed: !todo.completed })
+  const toggle = (task: Task) =>
+    run(() => updateTask(task.id, { is_completed: !task.is_completed }), task.is_completed ? "Marked as open" : "Marked as done")
 
-  const saveEdit = (todo: TodoData, newTitle: string) =>
-    updateTodo({ ...todo, title: newTitle })
+  const remove = (id: number) => run(() => deleteTask(id), "Task deleted")
 
-  const deleteTodo = async (id: number) => {
-    setError("")
-    try {
-      await request(`/api/todos/${id}`, { method: "DELETE" })
-      await loadTodos()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-    }
+  const openCreate = () => {
+    setEditing(null)
+    setFormOpen(true)
+  }
+
+  const openEdit = (task: Task) => {
+    setEditing(task)
+    setFormOpen(true)
   }
 
   return (
-    <main>
-      <h1>Smarter Todo</h1>
-      <form onSubmit={addTodo}>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs to be done?"
-        />
-        <button type="submit">Add</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-      {viewingTodo && (
-        <section className="details">
-          <p>ID: {viewingTodo.id}</p>
-          <p>Title: {viewingTodo.title}</p>
-          <p>Completed: {viewingTodo.completed ? "Yes" : "No"}</p>
-          <button onClick={() => setViewingTodo(null)}>Close</button>
-        </section>
-      )}
-      <ul>
-        {todos.map((todo) => (
-          <Profiler
-            key={todo.id}
-            id={`Todo ${todo.id}`}
-            onRender={(id, phase, actualDuration) =>
-              console.log(`${id} ${phase}: ${actualDuration.toFixed(2)}ms`)
+    <Layout style={{ minHeight: "100vh" }}>
+      <Layout.Content style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "48px 16px" }}>
+        <Card
+          title={<Typography.Title level={3} style={{ margin: 0 }}>Smarter Todo</Typography.Title>}
+          extra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              New task
+            </Button>
+          }
+        >
+          {error && <Alert type="error" title={error} showIcon style={{ marginBottom: 16 }} />}
+          <List
+            loading={loading}
+            dataSource={tasks}
+            locale={{ emptyText: <Empty description="No tasks yet" /> }}
+            renderItem={(task) => <TaskItem task={task} onToggle={toggle} onEdit={openEdit} onDelete={remove} />}
+            loadMore={
+              hasMore && (
+                <div style={{ textAlign: "center", marginTop: 12 }}>
+                  <Button onClick={loadMore}>Load more</Button>
+                </div>
+              )
             }
-          >
-            <Todo
-              todo={todo}
-              onView={viewTodo}
-              onToggle={toggleTodo}
-              onSave={saveEdit}
-              onDelete={deleteTodo}
-            />
-          </Profiler>
-        ))}
-      </ul>
-    </main>
+          />
+        </Card>
+      </Layout.Content>
+      <TaskFormModal open={formOpen} task={editing} onSubmit={submitForm} onCancel={() => setFormOpen(false)} />
+    </Layout>
   )
 }
 
