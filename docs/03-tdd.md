@@ -62,16 +62,13 @@ sequenceDiagram
     participant R as Controller (task_controller.py)
     participant S as Schemas (Pydantic)
     participant V as Service (task_service.py)
-    participant P as Repository (task_repository.py)
     participant D as Database (SQLModel Session)
     C->>R: POST /api/v1/tasks {title}
     R->>S: validate TaskCreate
     S-->>R: valid / 422
     R->>V: create_task(data)
-    V->>P: save(task)
-    P->>D: session.add(task), commit
-    D-->>P: task with id
-    P-->>V: task
+    V->>D: session.add(task), commit
+    D-->>V: task with id
     V-->>R: task
     R-->>C: 201 TaskRead
 ```
@@ -109,10 +106,8 @@ backend/
       user.py          # (Beta) AppUser, RefreshToken, groups, members
     schemas/
       task.py          # TaskCreate / TaskUpdate / TaskRead (request and response shapes)
-    repositories/
-      task_repository.py   # database queries only, no business rules
     services/
-      task_service.py  # business rules (no HTTP, no SQL); raises TaskNotFoundError
+      task_service.py  # business rules and database queries (no HTTP); raises TaskNotFoundError
     controllers/
       task_controller.py   # /api/v1/tasks: parses the request, calls the service, shapes the response
       auth_controller.py   # (Beta) /api/v1/auth/*
@@ -137,7 +132,7 @@ docs/
   03-tdd.md
 ```
 
-The backend follows an MVC-style layering: **controller** (validate input, check permissions through dependencies, call the service) → **service** (business rules, knows nothing about HTTP) → **repository** (database queries) → **model** (table). Schemas define the request and response shapes. `main.py` maps `TaskNotFoundError` to `404`.
+The backend follows an MVC-style layering: **controller** (validate input, check permissions through dependencies, call the service) → **service** (business rules and database queries through the SQLModel session, knows nothing about HTTP) → **model** (table). Schemas define the request and response shapes. `main.py` maps `TaskNotFoundError` to `404`.
 
 ## 5. Data model
 

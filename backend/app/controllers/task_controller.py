@@ -6,7 +6,6 @@ from sqlmodel import Session
 
 from app.core.database import get_session
 from app.models.task import Task
-from app.repositories.task_repository import TaskRepository
 from app.schemas.task import TaskCreate, TaskRead, TaskUpdate
 from app.services.task_service import TaskNotFoundError, TaskService
 
@@ -20,7 +19,7 @@ async def task_not_found_handler(request: Request, exc: TaskNotFoundError) -> JS
 
 
 def get_task_service(session: Annotated[Session, Depends(get_session)]) -> TaskService:
-    return TaskService(TaskRepository(session))
+    return TaskService(session)
 
 
 ServiceDep = Annotated[TaskService, Depends(get_task_service)]
