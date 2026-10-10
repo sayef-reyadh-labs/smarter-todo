@@ -59,14 +59,17 @@ app = FastAPI(title="Smarter Todo API", docs_url="/api/docs", openapi_url="/api/
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant R as Router (tasks.py)
+    participant R as Controller (task_controller.py)
     participant S as Schemas (Pydantic)
+    participant V as Service (task_service.py)
     participant D as Database (SQLModel Session)
     C->>R: POST /api/v1/tasks {title}
     R->>S: validate TaskCreate
     S-->>R: valid / 422
-    R->>D: session.add(task), commit
-    D-->>R: task with id
+    R->>V: create_task(data)
+    V->>D: session.add(task), commit
+    D-->>V: task with id
+    V-->>R: task
     R-->>C: 201 TaskRead
 ```
 
@@ -91,35 +94,45 @@ sequenceDiagram
 
 ```
 backend/
-  main.py              # creates the app, includes routers, health check
+  main.py              # creates the app, includes controllers, health check, serves the frontend build
   app/
-    __init__.py
-    config.py          # (Beta) settings from env vars: JWT secret, token lifetimes
-    database.py        # engine, get_session()
-    models.py          # tables + Create / Update / Read schemas
-    security.py        # (Beta) password hashing, JWT create/verify, refresh tokens
-    deps.py            # (Beta) get_current_user, require_admin, get_membership, require_group_owner
-    routers/
-      __init__.py
-      tasks.py         # /api/v1/tasks
-      auth.py          # (Beta) /api/v1/auth/*
-      users.py         # (Beta) /api/v1/users/me (profile, change name, change password)
-      admin.py         # (Beta) /api/v1/admin/*
-      groups.py        # (Beta) /api/v1/groups/* (members and group tasks)
+    core/
+      config.py        # settings from env vars (DATABASE_URL; Beta: JWT secret, token lifetimes)
+      database.py      # engine, get_session(), create_db_and_tables()
+      security.py      # (Beta) password hashing, JWT create/verify, refresh tokens
+      deps.py          # (Beta) get_current_user, require_admin, get_membership, require_group_owner
+    models/
+      task.py          # Task table
+      user.py          # (Beta) AppUser, RefreshToken, groups, members
+    schemas/
+      task.py          # TaskCreate / TaskUpdate / TaskRead (request and response shapes)
+    services/
+      task_service.py  # business rules and database queries (no HTTP); raises TaskNotFoundError
+    controllers/
+      task_controller.py   # /api/v1/tasks: parses the request, calls the service, shapes the response
+      auth_controller.py   # (Beta) /api/v1/auth/*
+      user_controller.py   # (Beta) /api/v1/users/me
+      admin_controller.py  # (Beta) /api/v1/admin/*
+      group_controller.py  # (Beta) /api/v1/groups/* (members and group tasks)
   alembic/             # (Beta) migration scripts
   alembic.ini          # (Beta)
   requirements.txt
 frontend/
   src/
-    App.tsx            # (Could) simple task list using the API
-    pages/             # (Beta, Could) Login, Signup, MyTasks, Groups, Profile, AdminDashboard
+    App.tsx            # routes, Ant Design theme and dark-mode state
+    pages/             # HomePage, TaskDetailsPage, AboutPage (Beta: Login, Signup, Groups, Profile, AdminDashboard)
+    components/        # TaskForm, TaskList, TaskStats
+    layouts/           # AppLayout (navigation, dark-mode switch)
+    services/          # api.ts (every backend call)
+    types/             # Task, TaskInput, TaskPatch
+    utils/             # form helpers and validation rules
 docs/
   01-prd.md
   02-srs.md
   03-tdd.md
 ```
 
-Keep routers thin: validate input, check permissions through dependencies, then read/write with the session. A separate service layer is not needed at this size.
+The backend follows an MVC-style layering: **controller** (validate input, check permissions through dependencies, call the service) → **service** (business rules and database queries through the SQLModel session, knows nothing about HTTP) → **model** (table). Schemas define the request and response shapes. `main.py` maps `TaskNotFoundError` to `404`.
 
 ## 5. Data model
 
@@ -456,7 +469,7 @@ A catch-all exception handler returns `500` with `{"detail": "Internal server er
 
 ## 7. Database access
 
-- `database.py` creates one engine from the `DATABASE_URL` env var, defaulting to `sqlite:///./smarter_todo.db` locally.
+- `core/database.py` creates one engine from `settings.database_url` (the `DATABASE_URL` env var, defaulting to `backend/smarter_todo.db` locally).
 - `get_session()` is a FastAPI dependency that yields a `Session` per request.
 - MVP: tables are created on startup with `SQLModel.metadata.create_all(engine)`.
 - Beta: `create_all` is removed and the schema is managed by Alembic (section 12).
@@ -471,6 +484,7 @@ A catch-all exception handler returns `500` with `{"detail": "Internal server er
 | Variable | Local | Vercel | Release |
 |---|---|---|---|
 | `DATABASE_URL` | not set (SQLite default) | Supabase transaction pooler URL (port `6543`) | MVP |
+| `POSTGRES_URL` | not set | Set by the Supabase integration on Vercel; used when `DATABASE_URL` is not set | MVP |
 | `JWT_SECRET` | any long random string in `.env` | Random 32+ byte secret (`python -c "import secrets; print(secrets.token_urlsafe(48))"`) | Beta |
 | `ACCESS_TOKEN_MINUTES` | `15` | `15` | Beta |
 | `REFRESH_TOKEN_DAYS` | `7` | `7` | Beta |

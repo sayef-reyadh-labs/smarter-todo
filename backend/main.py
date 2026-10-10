@@ -1,47 +1,34 @@
-import os
-from collections.abc import Iterator
-from pathlib import Path
-from typing import Annotated
+import logging
 
-from fastapi import Depends, FastAPI, HTTPException
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Smarter Todo API")
+from app.controllers import task_controller
+from app.core.config import BACKEND_DIR
+from app.core.database import create_db_and_tables
+from app.services.task_service import TaskNotFoundError
 
-BACKEND_DIR = Path(__file__).resolve().parent
-# Vercel's filesystem is read-only except /tmp, which is wiped between invocations.
-DB_DIR = Path("/tmp") if os.getenv("VERCEL") else BACKEND_DIR
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{(DB_DIR / 'smarter_todo.db').as_posix()}")
+logger = logging.getLogger("smarter_todo")
 
-# check_same_thread=False: FastAPI runs sync routes in a thread pool.
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+app = FastAPI(
+    title="Smarter Todo API",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+    redoc_url=None,
+)
 
+app.include_router(task_controller.router)
+app.add_exception_handler(TaskNotFoundError, task_controller.task_not_found_handler)
 
-# Request body: FastAPI validates it and returns 422 if it is invalid.
-class TodoIn(SQLModel):
-    title: str
-    completed: bool = False
-
-
-# table=True maps this class to a database table.
-class Todo(TodoIn, table=True):
-    # AUTOINCREMENT stops SQLite from reusing the id of a deleted todo, like Postgres.
-    __table_args__ = {"sqlite_autoincrement": True}
-
-    id: int | None = Field(default=None, primary_key=True)
+# Run at import (not in a lifespan hook) so it also works on serverless hosts.
+create_db_and_tables()
 
 
-# Creates the table on first run; existing data is kept.
-SQLModel.metadata.create_all(engine)
-
-
-def get_session() -> Iterator[Session]:
-    with Session(engine) as session:
-        yield session
-
-
-SessionDep = Annotated[Session, Depends(get_session)]
+# Log the real error, but never send stack traces or database details to the client.
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
+    logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.get("/api/health")
@@ -49,57 +36,9 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# Read all todos.
-@app.get("/api/todos")
-def list_todos(session: SessionDep) -> list[Todo]:
-    return list(session.exec(select(Todo).order_by(Todo.id)).all())
-
-
-# Create a todo and return it with its new id.
-@app.post("/api/todos", status_code=201)
-def create_todo(data: TodoIn, session: SessionDep) -> Todo:
-    todo = Todo.model_validate(data)
-    session.add(todo)
-    session.commit()
-    session.refresh(todo)
-    return todo
-
-
-# Read one todo by id, or 404 if it does not exist.
-@app.get("/api/todos/{todo_id}")
-def get_todo(todo_id: int, session: SessionDep) -> Todo:
-    todo = session.get(Todo, todo_id)
-    if todo is None:
-        raise HTTPException(status_code=404, detail="Todo not found")
-    return todo
-
-
-# Update a todo's title and completed status.
-@app.put("/api/todos/{todo_id}")
-def update_todo(todo_id: int, data: TodoIn, session: SessionDep) -> Todo:
-    todo = session.get(Todo, todo_id)
-    if todo is None:
-        raise HTTPException(status_code=404, detail="Todo not found")
-    todo.title = data.title
-    todo.completed = data.completed
-    session.add(todo)
-    session.commit()
-    session.refresh(todo)
-    return todo
-
-
-# Delete a todo; 204 means success with no response body.
-@app.delete("/api/todos/{todo_id}", status_code=204)
-def delete_todo(todo_id: int, session: SessionDep) -> None:
-    todo = session.get(Todo, todo_id)
-    if todo is None:
-        raise HTTPException(status_code=404, detail="Todo not found")
-    session.delete(todo)
-    session.commit()
-
-
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend" / "dist"
 
 # dist/ only exists after `npm run build`; in dev the Vite server serves the UI.
+# fallback="index.html" lets React Router handle client-side routes such as /tasks/1.
 if FRONTEND_DIR.is_dir():
-    app.frontend("/", directory=FRONTEND_DIR)
+    app.frontend("/", directory=FRONTEND_DIR, fallback="index.html")
