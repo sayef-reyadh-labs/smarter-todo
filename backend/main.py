@@ -1,24 +1,47 @@
+import os
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException
+from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 app = FastAPI(title="Smarter Todo API")
 
+BACKEND_DIR = Path(__file__).resolve().parent
+# Vercel's filesystem is read-only except /tmp, which is wiped between invocations.
+DB_DIR = Path("/tmp") if os.getenv("VERCEL") else BACKEND_DIR
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{(DB_DIR / 'smarter_todo.db').as_posix()}")
+
+# check_same_thread=False: FastAPI runs sync routes in a thread pool.
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
 
 # Request body: FastAPI validates it and returns 422 if it is invalid.
-class TodoIn(BaseModel):
+class TodoIn(SQLModel):
     title: str
     completed: bool = False
 
 
-class Todo(TodoIn):
-    id: int
+# table=True maps this class to a database table.
+class Todo(TodoIn, table=True):
+    # AUTOINCREMENT stops SQLite from reusing the id of a deleted todo, like Postgres.
+    __table_args__ = {"sqlite_autoincrement": True}
+
+    id: int | None = Field(default=None, primary_key=True)
 
 
-# In-memory storage: data is lost when the server restarts.
-todos: dict[int, Todo] = {}
-next_id = 1
+# Creates the table on first run; existing data is kept.
+SQLModel.metadata.create_all(engine)
+
+
+def get_session() -> Iterator[Session]:
+    with Session(engine) as session:
+        yield session
+
+
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @app.get("/api/health")
@@ -28,45 +51,54 @@ def health() -> dict[str, str]:
 
 # Read all todos.
 @app.get("/api/todos")
-def list_todos() -> list[Todo]:
-    return list(todos.values())
+def list_todos(session: SessionDep) -> list[Todo]:
+    return list(session.exec(select(Todo).order_by(Todo.id)).all())
 
 
 # Create a todo and return it with its new id.
 @app.post("/api/todos", status_code=201)
-def create_todo(data: TodoIn) -> Todo:
-    global next_id
-    todo = Todo(id=next_id, **data.model_dump())
-    todos[todo.id] = todo
-    next_id += 1
+def create_todo(data: TodoIn, session: SessionDep) -> Todo:
+    todo = Todo.model_validate(data)
+    session.add(todo)
+    session.commit()
+    session.refresh(todo)
     return todo
 
 
 # Read one todo by id, or 404 if it does not exist.
 @app.get("/api/todos/{todo_id}")
-def get_todo(todo_id: int) -> Todo:
-    if todo_id not in todos:
+def get_todo(todo_id: int, session: SessionDep) -> Todo:
+    todo = session.get(Todo, todo_id)
+    if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
-    return todos[todo_id]
+    return todo
 
 
 # Update a todo's title and completed status.
 @app.put("/api/todos/{todo_id}")
-def update_todo(todo_id: int, data: TodoIn) -> Todo:
-    if todo_id not in todos:
+def update_todo(todo_id: int, data: TodoIn, session: SessionDep) -> Todo:
+    todo = session.get(Todo, todo_id)
+    if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
-    todos[todo_id] = Todo(id=todo_id, **data.model_dump())
-    return todos[todo_id]
+    todo.title = data.title
+    todo.completed = data.completed
+    session.add(todo)
+    session.commit()
+    session.refresh(todo)
+    return todo
 
 
 # Delete a todo; 204 means success with no response body.
 @app.delete("/api/todos/{todo_id}", status_code=204)
-def delete_todo(todo_id: int) -> None:
-    if todos.pop(todo_id, None) is None:
+def delete_todo(todo_id: int, session: SessionDep) -> None:
+    todo = session.get(Todo, todo_id)
+    if todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
+    session.delete(todo)
+    session.commit()
 
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+FRONTEND_DIR = BACKEND_DIR.parent / "frontend" / "dist"
 
 # dist/ only exists after `npm run build`; in dev the Vite server serves the UI.
 if FRONTEND_DIR.is_dir():
