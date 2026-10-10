@@ -1,19 +1,87 @@
-import { type FormEvent, useState } from "react"
+import { Profiler, useEffect, useState } from "react"
+import Todo, { type TodoData } from "./components/Todo"
 
-export default function App() {
-  const [name, setName] = useState("")
-  const [message, setMessage] = useState("")
+const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  })
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+  return res.status === 204 ? (undefined as T) : await res.json()
+}
+
+const App = () => {
+  // useState stores a value; calling its setter re-renders the component with the new value.
+  const [todos, setTodos] = useState<TodoData[]>([])
+  const [title, setTitle] = useState("")
   const [error, setError] = useState("")
+  const [viewingTodo, setViewingTodo] = useState<TodoData | null>(null)
 
-  async function handleSubmit(e: FormEvent) {
+  const loadTodos = async () => {
+    setTodos(await request<TodoData[]>("/api/todos"))
+  }
+
+  // useEffect runs after render; the empty [] means only once, so todos load when the page opens.
+  useEffect(() => {
+    const loadOnOpen = async () => {
+      try {
+        await loadTodos()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong")
+      }
+    }
+    loadOnOpen()
+  }, [])
+
+  const addTodo = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!title.trim()) return
     setError("")
     try {
-      const params = new URLSearchParams({ name: name || "World" })
-      const res = await fetch(`/api/hello?${params}`)
-      if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-      const data: { message: string } = await res.json()
-      setMessage(data.message)
+      await request("/api/todos", {
+        method: "POST",
+        body: JSON.stringify({ title: title.trim() }),
+      })
+      setTitle("")
+      await loadTodos()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    }
+  }
+
+  const viewTodo = async (id: number) => {
+    setError("")
+    try {
+      setViewingTodo(await request<TodoData>(`/api/todos/${id}`))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    }
+  }
+
+  const updateTodo = async (todo: TodoData) => {
+    setError("")
+    try {
+      await request(`/api/todos/${todo.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ title: todo.title, completed: todo.completed }),
+      })
+      await loadTodos()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    }
+  }
+
+  const toggleTodo = (todo: TodoData) =>
+    updateTodo({ ...todo, completed: !todo.completed })
+
+  const saveEdit = (todo: TodoData, newTitle: string) =>
+    updateTodo({ ...todo, title: newTitle })
+
+  const deleteTodo = async (id: number) => {
+    setError("")
+    try {
+      await request(`/api/todos/${id}`, { method: "DELETE" })
+      await loadTodos()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     }
@@ -21,74 +89,45 @@ export default function App() {
 
   return (
     <main>
-      <h1>FastAPI + React</h1>
-      <form onSubmit={handleSubmit}>
+      <h1>Smarter Todo</h1>
+      <form onSubmit={addTodo}>
         <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="What needs to be done?"
         />
-        <button type="submit">Say hello</button>
+        <button type="submit">Add</button>
       </form>
-      {message && <p>{message}</p>}
       {error && <p className="error">{error}</p>}
-      {/* EXERCISE (part 2): uncomment <UserForm /> and the UserForm function below. */}
-      {/* <UserForm /> */}
+      {viewingTodo && (
+        <section className="details">
+          <p>ID: {viewingTodo.id}</p>
+          <p>Title: {viewingTodo.title}</p>
+          <p>Completed: {viewingTodo.completed ? "Yes" : "No"}</p>
+          <button onClick={() => setViewingTodo(null)}>Close</button>
+        </section>
+      )}
+      <ul>
+        {todos.map((todo) => (
+          <Profiler
+            key={todo.id}
+            id={`Todo ${todo.id}`}
+            onRender={(id, phase, actualDuration) =>
+              console.log(`${id} ${phase}: ${actualDuration.toFixed(2)}ms`)
+            }
+          >
+            <Todo
+              todo={todo}
+              onView={viewTodo}
+              onToggle={toggleTodo}
+              onSave={saveEdit}
+              onDelete={deleteTodo}
+            />
+          </Profiler>
+        ))}
+      </ul>
     </main>
   )
 }
 
-// function UserForm() {
-//   const [form, setForm] = useState({ id: "", name: "", email: "" })
-//   const [reply, setReply] = useState("")
-//   const [error, setError] = useState("")
-//
-//   async function handleSubmit(e: FormEvent) {
-//     e.preventDefault()
-//     setError("")
-//     setReply("")
-//     try {
-//       const res = await fetch("/api/user", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify({ ...form, id: Number(form.id) }),
-//       })
-//       if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-//       const data: { message: string } = await res.json()
-//       setReply(data.message)
-//     } catch (err) {
-//       setError(err instanceof Error ? err.message : "Something went wrong")
-//     }
-//   }
-//
-//   return (
-//     <section>
-//       <h2>Send your details</h2>
-//       <form onSubmit={handleSubmit}>
-//         <input
-//           type="number"
-//           value={form.id}
-//           onChange={(e) => setForm({ ...form, id: e.target.value })}
-//           placeholder="ID"
-//           required
-//         />
-//         <input
-//           value={form.name}
-//           onChange={(e) => setForm({ ...form, name: e.target.value })}
-//           placeholder="Name"
-//           required
-//         />
-//         <input
-//           type="email"
-//           value={form.email}
-//           onChange={(e) => setForm({ ...form, email: e.target.value })}
-//           placeholder="Email"
-//           required
-//         />
-//         <button type="submit">Send</button>
-//       </form>
-//       {reply && <p>{reply}</p>}
-//       {error && <p className="error">{error}</p>}
-//     </section>
-//   )
-// }
+export default App
