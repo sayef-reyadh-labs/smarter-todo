@@ -327,7 +327,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 **AC-01 Create task (FR-01, FR-07)**
 - Given a valid body `{"title": "Read chapter 3"}`
 - When the client sends `POST /api/v1/tasks`
-- Then the response is `201` with an `id`, `is_completed: false`, and `created_at` set.
+- Then the response is `201` with an `id` (a UUID), `is_completed: false`, and `created_at` set.
 
 **AC-02 Create task with no title (FR-08)**
 - Given a body `{}` or `{"title": ""}`
@@ -340,19 +340,20 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 - Then the response is `200` with 10 tasks, newest first.
 
 **AC-04 Get task (FR-04, FR-09)**
-- Given task `5` exists
-- When the client sends `GET /api/v1/tasks/5`, the response is `200` with that task.
-- When the client sends `GET /api/v1/tasks/9999`, the response is `404`.
+- Given task `{id}` exists (ids are UUIDs, for example `3f2b8c1e-6d4a-4b7e-9a35-1c0e8f5d7a92`)
+- When the client sends `GET /api/v1/tasks/{id}`, the response is `200` with that task.
+- When the client sends `GET` with a UUID that does not exist, the response is `404`.
+- When the client sends `GET /api/v1/tasks/abc` (not a UUID), the response is `422`.
 
 **AC-05 Update task (FR-05, FR-07)**
-- Given task `5` exists with `is_completed: false`
-- When the client sends `PATCH /api/v1/tasks/5` with `{"is_completed": true}`
+- Given task `{id}` exists with `is_completed: false`
+- When the client sends `PATCH /api/v1/tasks/{id}` with `{"is_completed": true}`
 - Then the response is `200`, `is_completed` is `true`, the title is unchanged, and `updated_at` is newer.
 
 **AC-06 Delete task (FR-06, FR-09)**
-- Given task `5` exists
-- When the client sends `DELETE /api/v1/tasks/5`
-- Then the response is `204`, and a following `GET /api/v1/tasks/5` returns `404`.
+- Given task `{id}` exists
+- When the client sends `DELETE /api/v1/tasks/{id}`
+- Then the response is `204`, and a following `GET /api/v1/tasks/{id}` returns `404`.
 
 **AC-07 Health (FR-10)**
 - When the client sends `GET /api/health`
@@ -375,8 +376,8 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 - Then the response is `401`.
 
 **AC-11 Private personal tasks (FR-18, FR-19)**
-- Given user A owns task `5`
-- When user B sends `GET`, `PATCH` or `DELETE /api/v1/tasks/5`
+- Given user A owns task `{id}`
+- When user B sends `GET`, `PATCH` or `DELETE /api/v1/tasks/{id}`
 - Then the response is `404`, and A's task is unchanged.
 
 **AC-12 Admin only (FR-21, FR-24)**
