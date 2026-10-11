@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime, timezone
 from typing import Annotated
 
@@ -34,7 +35,7 @@ class TaskUpdate(SQLModel):
 
 
 class TaskRead(TaskBase):
-    id: int
+    id: uuid.UUID
     is_completed: bool
     created_at: datetime
     updated_at: datetime
