@@ -31,12 +31,12 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 export const apiService = {
   getTasks: (offset = 0, limit = PAGE_SIZE) => request<Task[]>(`${BASE}?offset=${offset}&limit=${limit}`),
 
-  getTask: (id: number) => request<Task>(`${BASE}/${id}`),
+  getTask: (id: string) => request<Task>(`${BASE}/${id}`),
 
   createTask: (data: TaskInput) => request<Task>(BASE, { method: "POST", body: JSON.stringify(data) }),
 
-  updateTask: (id: number, patch: TaskPatch) =>
+  updateTask: (id: string, patch: TaskPatch) =>
     request<Task>(`${BASE}/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
-  deleteTask: (id: number) => request<void>(`${BASE}/${id}`, { method: "DELETE" }),
+  deleteTask: (id: string) => request<void>(`${BASE}/${id}`, { method: "DELETE" }),
 }

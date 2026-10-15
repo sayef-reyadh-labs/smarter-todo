@@ -68,7 +68,7 @@ export function HomePage() {
     return run(() => apiService.updateTask(task.id, patch), task.is_completed ? "Marked as open" : "Marked as done")
   }
 
-  const deleteTask = (id: number) => run(() => apiService.deleteTask(id), "Task deleted")
+  const deleteTask = (id: string) => run(() => apiService.deleteTask(id), "Task deleted")
 
   const clearCompleted = () =>
     run(
