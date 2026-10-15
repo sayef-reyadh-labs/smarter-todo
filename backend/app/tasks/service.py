@@ -1,5 +1,3 @@
-import uuid
-
 from sqlmodel import Session, select
 
 from app.tasks.models import Task, utc_now
@@ -11,7 +9,7 @@ def list_tasks(session: Session, offset: int, limit: int) -> list[Task]:
     return list(session.exec(statement).all())
 
 
-def get_task(session: Session, task_id: uuid.UUID) -> Task | None:
+def get_task(session: Session, task_id: int) -> Task | None:
     return session.get(Task, task_id)
 
 
