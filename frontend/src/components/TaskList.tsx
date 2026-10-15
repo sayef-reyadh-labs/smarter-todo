@@ -8,8 +8,8 @@ type Props = {
   loading: boolean
   hasMore: boolean
   onToggle: (task: Task) => void
-  onDelete: (id: string) => void
-  onView: (id: string) => void
+  onDelete: (id: number) => void
+  onView: (id: number) => void
   onLoadMore: () => void
 }
 

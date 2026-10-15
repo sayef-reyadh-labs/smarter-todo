@@ -21,7 +21,7 @@ export function TaskDetailsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        setTask(await apiService.getTask(taskId ?? ""))
+        setTask(await apiService.getTask(Number(taskId)))
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load task")
       } finally {
