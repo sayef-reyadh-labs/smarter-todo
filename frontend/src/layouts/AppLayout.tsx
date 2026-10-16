@@ -1,13 +1,10 @@
 import { Layout, Menu, Switch, Typography } from "antd"
 import { Link, Outlet, useLocation } from "react-router"
+import { useTheme } from "../context/ThemeContext"
 
-type Props = {
-  darkMode: boolean
-  onToggleDark: () => void
-}
-
-export function AppLayout({ darkMode, onToggleDark }: Props) {
+export function AppLayout() {
   const { pathname } = useLocation()
+  const { darkMode, toggleDark } = useTheme()
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -25,7 +22,7 @@ export function AppLayout({ darkMode, onToggleDark }: Props) {
             { key: "about", label: <Link to="/about">About</Link> },
           ]}
         />
-        <Switch checked={darkMode} onChange={onToggleDark} checkedChildren="Dark" unCheckedChildren="Light" />
+        <Switch checked={darkMode} onChange={toggleDark} checkedChildren="Dark" unCheckedChildren="Light" />
       </Layout.Header>
       <Layout.Content style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "32px 16px" }}>
         <Outlet />
