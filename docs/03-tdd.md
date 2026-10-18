@@ -336,10 +336,10 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 
 | Method | Path | Body | Success | Errors | FR |
 |---|---|---|---|---|---|
-| `POST` | `/api/v1/tasks` | `TaskCreate` | `201` `TaskRead` | `422` | FR-01, FR-07 |
+| `POST` | `/api/v1/tasks` | `TaskCreate` | `201` `TaskRead` | `409`, `422` | FR-01, FR-07 |
 | `GET` | `/api/v1/tasks?offset=0&limit=20` | — | `200` `TaskPage` | `422` | FR-02, FR-03 |
 | `GET` | `/api/v1/tasks/{id}` | — | `200` `TaskRead` | `404` | FR-04 |
-| `PATCH` | `/api/v1/tasks/{id}` | `TaskUpdate` | `200` `TaskRead` | `404`, `422` | FR-05, FR-07 |
+| `PATCH` | `/api/v1/tasks/{id}` | `TaskUpdate` | `200` `TaskRead` | `404`, `409`, `422` | FR-05, FR-07 |
 | `DELETE` | `/api/v1/tasks/{id}` | — | `204` | `404` | FR-06 |
 | `GET` | `/api/health` | — | `200` `{"status":"ok"}` | — | FR-10 |
 
@@ -458,6 +458,8 @@ Validation errors (`422`) use FastAPI's built-in list format, which names the fa
 ```
 
 A catch-all exception handler returns `500` with `{"detail": "Internal server error"}` and logs the real error (NFR-07).
+
+The service signals a broken business rule (past due date, duplicate open title) by raising `TaskRuleError`; a handler in `main.py` turns it into `409` with `{"detail": "<message>"}`. The service never imports HTTP classes. The duplicate check runs in the service (check, then insert), so two simultaneous requests could both pass it; a partial unique index on `lower(title)` where `is_completed` is false would close that gap if it ever matters.
 
 ### 6.5 Design rules
 - Plural nouns for resources (`/tasks`, `/groups`, `/members`), no verbs in paths (except the `auth` actions).

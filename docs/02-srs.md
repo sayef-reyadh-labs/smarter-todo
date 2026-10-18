@@ -233,9 +233,9 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 
 | Field | Rule | Release |
 |---|---|---|
-| `title` | Required on create, string, 1–200 characters after trimming spaces | MVP |
+| `title` | Required on create, string, 1–200 characters after trimming spaces. On create, rename and reopen, an open (not completed) task with the same title, ignoring case, is rejected with `409` | MVP |
 | `description` | Optional, string, max 1000 characters | MVP |
-| `due_date` | Optional, date in `YYYY-MM-DD` format | MVP |
+| `due_date` | Optional, date in `YYYY-MM-DD` format. A date in the past is rejected with `409` on create and when the date is changed (completing or editing other fields of an overdue task still works) | MVP |
 | `is_completed` | Boolean | MVP |
 | `offset` | Integer ≥ 0 | MVP |
 | `limit` | Integer 1–100 | MVP |
@@ -289,6 +289,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 | Deleted / logged out | `204 No Content` | MVP |
 | Validation failed | `422 Unprocessable Content` | MVP |
 | Resource not found, or caller may not know it exists | `404 Not Found` | MVP |
+| Business rule broken (past due date, duplicate open title) | `409 Conflict` | MVP |
 | Unexpected server error | `500 Internal Server Error` | MVP |
 | Bad request (e.g. admin changing own role) | `400 Bad Request` | Beta |
 | Missing, invalid or expired token; wrong login | `401 Unauthorized` | Beta |
@@ -328,6 +329,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 - Given a valid body `{"title": "Read chapter 3"}`
 - When the client sends `POST /api/v1/tasks`
 - Then the response is `201` with an `id` (a UUID), `is_completed: false`, and `created_at` set.
+- When the body has a `due_date` in the past, or the title matches an open task (ignoring case), the response is `409` with a `detail` message.
 
 **AC-02 Create task with no title (FR-08)**
 - Given a body `{}` or `{"title": ""}`
@@ -349,6 +351,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 - Given task `{id}` exists with `is_completed: false`
 - When the client sends `PATCH /api/v1/tasks/{id}` with `{"is_completed": true}`
 - Then the response is `200`, `is_completed` is `true`, the title is unchanged, and `updated_at` is newer.
+- When a `PATCH` sets a past `due_date`, renames the task to the title of another open task, or reopens it while another open task has its title, the response is `409`.
 
 **AC-06 Delete task (FR-06, FR-09)**
 - Given task `{id}` exists
