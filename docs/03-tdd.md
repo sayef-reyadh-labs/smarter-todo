@@ -483,7 +483,7 @@ A catch-all exception handler returns `500` with `{"detail": "Internal server er
 | `JWT_SECRET` | any long random string in `.env` | Random 32+ byte secret (`python -c "import secrets; print(secrets.token_urlsafe(48))"`) | Beta |
 | `ACCESS_TOKEN_MINUTES` | `15` | `15` | Beta |
 | `REFRESH_TOKEN_DAYS` | `7` | `7` | Beta |
-| `MIGRATION_DATABASE_URL` | not needed | Not on Vercel. Used only on a developer machine to run Alembic against Supabase (session pooler, port `5432`) | Beta |
+| `MIGRATION_DATABASE_URL` | not needed | Not on Vercel. Used only on a developer machine to run Alembic against Supabase (session pooler, port `5432`) | MVP |
 
 No secrets are committed. `.env` stays in `.gitignore`.
 
@@ -506,7 +506,7 @@ flowchart LR
 
 - The repo is connected to Vercel through the Vercel GitHub integration (already set up by the template); a push to `main` deploys to production.
 - Environment variables from section 8 are set in the Vercel project settings.
-- (Beta) Before merging a change that includes a new migration, run `alembic upgrade head` against Supabase (section 12), then merge so Vercel deploys the matching code.
+- Before merging a change that includes a new migration, run `alembic upgrade head` against Supabase (section 12), then merge so Vercel deploys the matching code.
 
 ## 10. Auth and RBAC design — Beta
 
@@ -630,11 +630,11 @@ stats = AdminStats(
 ]
 ```
 
-## 12. Migrations — Beta
+## 12. Migrations
 
-- Add Alembic in `backend/alembic/`, with `target_metadata = SQLModel.metadata`.
-- Revision `0001_mvp`: the MVP `task` table. On the existing Supabase database (created by `create_all`), run `alembic stamp 0001_mvp` once instead of upgrading.
-- Revision `0002_beta`: create `app_user` (including lockout and ban columns), `refresh_token`, `task_group`, `group_member`; delete existing MVP demo tasks (they have no owner); add `owner_id` (not null), `group_id`, `assignee_id` and indexes to `task`.
+- Alembic lives in `backend/alembic/`, with `target_metadata = SQLModel.metadata`. It reads `MIGRATION_DATABASE_URL`, falling back to `DATABASE_URL`.
+- Revision `0001_uuid_task_id` (MVP): converts `task.id` from integer to `uuid` on PostgreSQL (`create_all` never alters an existing table). It does nothing on SQLite or when `id` is already `uuid`. Integer id `n` becomes the uuid whose last digits are `n` in hex.
+- Revision `0002_beta` (Beta): create `app_user` (including lockout and ban columns), `refresh_token`, `task_group`, `group_member`; delete existing MVP demo tasks (they have no owner); add `owner_id` (not null), `group_id`, `assignee_id` and indexes to `task`.
 - Run migrations from a developer machine: `MIGRATION_DATABASE_URL=... alembic upgrade head` (Supabase session pooler, port `5432`), then merge the code.
 - After `0002_beta`, remove `create_all` from startup.
 - Promote the first admin in the Supabase table editor: set `role = 'admin'` on your `app_user` row.
