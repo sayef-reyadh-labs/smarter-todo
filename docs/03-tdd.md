@@ -513,6 +513,7 @@ flowchart LR
 
 - The repo is connected to Vercel through the Vercel GitHub integration (already set up by the template); a push to `main` deploys to production.
 - Environment variables from section 8 are set in the Vercel project settings.
+- `vercel.json` has a rewrite inside the `frontend` service that sends every path without a file to `index.html`, so reloading `/tasks/<id>` lets React Router handle the route instead of returning a Vercel 404.
 - Before merging a change that includes a new migration, run `alembic upgrade head` against Supabase (section 12), then merge so Vercel deploys the matching code.
 
 ## 10. Auth and RBAC design — Beta
