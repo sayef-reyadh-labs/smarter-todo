@@ -1,6 +1,6 @@
 import uuid
 
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app.tasks.models import Task
 
@@ -19,6 +19,13 @@ class TaskRepository:
 
     def get(self, task_id: uuid.UUID) -> Task | None:
         return self.session.get(Task, task_id)
+
+    # Case-insensitive match on the title among tasks that are not completed; exclude_id skips the task being edited.
+    def find_open_by_title(self, title: str, exclude_id: uuid.UUID | None = None) -> Task | None:
+        statement = select(Task).where(func.lower(Task.title) == title.lower(), col(Task.is_completed).is_(False))
+        if exclude_id is not None:
+            statement = statement.where(Task.id != exclude_id)
+        return self.session.exec(statement).first()
 
     def create(self, task: Task) -> Task:
         return self._save(task)
