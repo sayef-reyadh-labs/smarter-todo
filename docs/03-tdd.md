@@ -99,9 +99,11 @@ sequenceDiagram
 backend/
   main.py              # creates the app, includes each feature's router, health check, serves the frontend build
   app/
-    config.py          # settings from env vars (DATABASE_URL; Beta: JWT secret, token lifetimes)
-    database.py        # engine, get_session(), SessionDep, create_db_and_tables()
-    security.py        # (Beta) password hashing, JWT create/verify, refresh tokens
+    config.py          # settings from env vars (DATABASE_URL, JWT_SECRET, token lifetimes)
+    database.py        # engine, get_session(), SessionDep
+    security.py        # Argon2 password hashing, JWT create/verify, refresh token create/hash
+    errors.py          # AppError (400 / 401 / 409): services raise them, main.py answers with the status code
+    clock.py           # utc_now()
     tasks/             # one folder per feature (domain), everything for tasks together
       router.py        # /api/v1/tasks endpoints (APIRouter)
       schemas.py       # TaskCreate / TaskUpdate / TaskRead (request and response shapes)
@@ -109,11 +111,11 @@ backend/
       service.py       # TaskService: business rules (no HTTP, no SQL)
       repository.py    # TaskRepository: every database query for tasks
       dependencies.py  # get_task_service (session -> repository -> service) and valid_task: resolves {task_id} to a Task or answers 404
-    auth/              # (Beta) router, schemas, models (AppUser, RefreshToken), service, dependencies (get_current_user)
-    users/             # (Beta) /api/v1/users/me (profile, change name, change password)
+    auth/              # /api/v1/auth/* (signup, login, refresh, logout): router, schemas, models (AppUser, RefreshToken), service, repository, dependencies (get_current_user)
+    users/             # /api/v1/users/me (profile, change name, change password): router, schemas, service, dependencies
     admin/             # (Beta) /api/v1/admin/* (require_admin)
     groups/            # (Beta) /api/v1/groups/* (members and group tasks)
-  alembic/             # (Beta) migration scripts
+  alembic/             # migration scripts
   alembic.ini          # (Beta)
   requirements.txt
 frontend/
@@ -473,8 +475,7 @@ The service signals a broken business rule (a due date in the past) by raising `
 
 - `database.py` creates one engine from `settings.database_url` (the `DATABASE_URL` env var, defaulting to `backend/smarter_todo.db` locally).
 - `get_session()` is a FastAPI dependency that yields a `Session` per request.
-- MVP: tables are created on startup with `SQLModel.metadata.create_all(engine)`.
-- Beta: `create_all` is removed and the schema is managed by Alembic (section 12).
+- Tables are created and changed only by Alembic (section 12); the app does not call `create_all`. After cloning, run `alembic upgrade head` once (it creates the local SQLite file).
 - On Vercel, connect through Supabase's **transaction pooler** (Supavisor, port `6543`), because each serverless function opens its own connections.
 - The transaction pooler does not support prepared statements, so the engine is created with `poolclass=NullPool` (the pooler does the pooling) and `connect_args={"prepare_threshold": None}` for psycopg.
 - URL format: `postgresql+psycopg://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`.
@@ -487,7 +488,7 @@ The service signals a broken business rule (a due date in the past) by raising `
 |---|---|---|---|
 | `DATABASE_URL` | not set (SQLite default) | Supabase transaction pooler URL (port `6543`) | MVP |
 | `POSTGRES_URL` | not set | Set by the Supabase integration on Vercel; used when `DATABASE_URL` is not set | MVP |
-| `JWT_SECRET` | any long random string in `.env` | Random 32+ byte secret (`python -c "import secrets; print(secrets.token_urlsafe(48))"`) | Beta |
+| `JWT_SECRET` | optional; without it a fixed development value is used | Required: a random 32+ byte secret (`python -c "import secrets; print(secrets.token_urlsafe(48))"`); logging in fails without it | Beta |
 | `ACCESS_TOKEN_MINUTES` | `15` | `15` | Beta |
 | `REFRESH_TOKEN_DAYS` | `7` | `7` | Beta |
 | `MIGRATION_DATABASE_URL` | not needed | Not on Vercel. Used only on a developer machine to run Alembic against Supabase (session pooler, port `5432`) | MVP |
@@ -544,10 +545,10 @@ bearer = HTTPBearer()
 
 def get_current_user(creds=Depends(bearer), session: Session = Depends(get_session)) -> AppUser:
     payload = decode_access_token(creds.credentials)   # 401 if invalid or expired
-    user = session.get(AppUser, int(payload["sub"]))
+    user = session.get(AppUser, uuid.UUID(payload["sub"]))
     if user is None:
-        raise HTTPException(401, "Invalid token")
-    if user.is_banned:
+        raise UnauthorizedError("Invalid or expired token")   # app/errors.py: main.py answers 401
+    if user.is_banned:   # Beta B4 (admin): not in the first auth release
         raise HTTPException(403, "Account banned")   # checked on every request, not only at login
     return user
 
@@ -640,10 +641,11 @@ stats = AdminStats(
 ## 12. Migrations
 
 - Alembic lives in `backend/alembic/`, with `target_metadata = SQLModel.metadata`. It reads `MIGRATION_DATABASE_URL`, falling back to `DATABASE_URL`.
-- Revision `0001_uuid_task_id` (MVP): converts `task.id` from integer to `uuid` on PostgreSQL (`create_all` never alters an existing table). It does nothing on SQLite or when `id` is already `uuid`. Integer id `n` becomes the uuid whose last digits are `n` in hex.
-- Revision `0002_beta` (Beta): create `app_user` (including lockout and ban columns), `refresh_token`, `task_group`, `group_member`; delete existing MVP demo tasks (they have no owner); add `owner_id` (not null), `group_id`, `assignee_id` and indexes to `task`.
-- Run migrations from a developer machine: `MIGRATION_DATABASE_URL=... alembic upgrade head` (Supabase session pooler, port `5432`), then merge the code.
-- After `0002_beta`, remove `create_all` from startup.
+- Revision `0001_uuid_task_id` (MVP): creates the `task` table (uuid id) on a fresh database, and converts an integer `task.id` to `uuid` on an existing PostgreSQL database. It does nothing when `id` is already `uuid`. Integer id `n` becomes the uuid whose last digits are `n` in hex.
+- Revision `0002_auth` (#4): create `app_user` (`id`, `email`, `name`, `password_hash`, `role`, `created_at`, `updated_at`) and `refresh_token`; delete the existing MVP demo tasks (they have no owner); add `task.owner_id` (not null, foreign key to `app_user`, indexed).
+- Revision `0003_beta` (Beta, later issues): lockout and ban columns on `app_user`, `task_group`, `group_member`, and `group_id` and `assignee_id` on `task`.
+- Run migrations from a developer machine: `MIGRATION_DATABASE_URL=... alembic upgrade head` (Supabase session pooler, port `5432`), then merge the code. `MIGRATION_DATABASE_URL` wins over `DATABASE_URL`, so never leave it set in a shell where you run local tests.
+- Locally, `alembic upgrade head` (with `DATABASE_URL` unset) builds `backend/smarter_todo.db`; run it again after pulling a change that adds a revision.
 - Promote the first admin in the Supabase table editor: set `role = 'admin'` on your `app_user` row.
 
 ## 13. Risks

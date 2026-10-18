@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy.pool import NullPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
 from app.config import settings
 
@@ -16,11 +16,6 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     # Supabase's transaction pooler does the pooling and rejects prepared statements.
     engine = create_engine(DATABASE_URL, poolclass=NullPool, connect_args={"prepare_threshold": None})
-
-
-def create_db_and_tables() -> None:
-    """Create missing tables; existing data is kept."""
-    SQLModel.metadata.create_all(engine)
 
 
 def get_session() -> Iterator[Session]:

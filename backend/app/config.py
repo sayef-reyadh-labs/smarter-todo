@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     POSTGRES_URL: str | None = None
     # Set by Vercel itself.
     VERCEL: str | None = None
+    # Signs the access tokens. Required on Vercel; locally a fixed development value is used.
+    JWT_SECRET: str | None = None
+    ACCESS_TOKEN_MINUTES: int = 15
+    REFRESH_TOKEN_DAYS: int = 7
 
     @property
     def database_url(self) -> str:
@@ -38,6 +42,14 @@ class Settings(BaseSettings):
         # Vercel's filesystem is read-only except /tmp, which is wiped between invocations.
         db_dir = Path("/tmp") if self.VERCEL else BACKEND_DIR
         return f"sqlite:///{(db_dir / 'smarter_todo.db').as_posix()}"
+
+    @property
+    def jwt_secret(self) -> str:
+        if self.JWT_SECRET:
+            return self.JWT_SECRET
+        if self.VERCEL:
+            raise RuntimeError("JWT_SECRET must be set in the Vercel environment variables")
+        return "development-only-secret-change-me-0123456789"
 
 
 settings = Settings()

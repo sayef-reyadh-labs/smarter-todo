@@ -6,20 +6,27 @@ from sqlmodel import Session, func, select
 from app.tasks.models import Task
 
 
-# The only class that knows where tasks are stored; the service calls it and never sees SQL.
+# Every query is limited to one owner, so a user can never read or change another user's task.
 class TaskRepository:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, owner_id: uuid.UUID) -> None:
         self.session = session
+        self.owner_id = owner_id
 
     def list(self, offset: int, limit: int) -> list[Task]:
-        statement = select(Task).order_by(Task.created_at.desc(), Task.id.desc()).offset(offset).limit(limit)
+        statement = (
+            select(Task)
+            .where(Task.owner_id == self.owner_id)
+            .order_by(Task.created_at.desc(), Task.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         return list(self.session.exec(statement).all())
 
     def count(self) -> int:
-        return self.session.exec(select(func.count()).select_from(Task)).one()
+        return self.session.exec(select(func.count()).select_from(Task).where(Task.owner_id == self.owner_id)).one()
 
     def get(self, task_id: uuid.UUID) -> Task | None:
-        return self.session.get(Task, task_id)
+        return self.session.exec(select(Task).where(Task.id == task_id, Task.owner_id == self.owner_id)).first()
 
     def create(self, task: Task) -> Task:
         return self._save(task)
