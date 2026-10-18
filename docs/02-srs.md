@@ -164,7 +164,7 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 |---|---|---|---|
 | FR-01 | The system shall create a task from a JSON body with `title` (required), `description`, `due_date` (optional). New tasks have `is_completed = false`. | MVP | US-01 |
 | FR-02 | The system shall return the list of tasks, newest first. | MVP | US-02 |
-| FR-03 | The list shall support `offset` (default 0) and `limit` (default 20, max 100) query parameters. | MVP | US-02 |
+| FR-03 | The list shall support `offset` (default 0) and `limit` (default 20, max 100) query parameters, and respond with `items`, `total` (all tasks, not just this page), `offset` and `limit`. | MVP | US-02 |
 | FR-04 | The system shall return one task by its ID. | MVP | US-03 |
 | FR-05 | The system shall update any of `title`, `description`, `due_date`, `is_completed` on an existing task. Fields not sent stay unchanged. | MVP | US-04, US-05 |
 | FR-06 | The system shall delete a task by its ID. | MVP | US-06 |
@@ -337,7 +337,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 **AC-03 List tasks (FR-02, FR-03)**
 - Given 25 tasks exist
 - When the client sends `GET /api/v1/tasks?limit=10&offset=0`
-- Then the response is `200` with 10 tasks, newest first.
+- Then the response is `200` with `items` holding 10 tasks (newest first) and `total` equal to `25`.
 
 **AC-04 Get task (FR-04, FR-09)**
 - Given task `{id}` exists (ids are UUIDs, for example `3f2b8c1e-6d4a-4b7e-9a35-1c0e8f5d7a92`)
