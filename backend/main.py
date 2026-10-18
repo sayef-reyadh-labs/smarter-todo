@@ -15,6 +15,7 @@ app = FastAPI(
     title="Smarter Todo API",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
+    swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect",  # the default /docs/... is not routed to the backend on Vercel
     redoc_url=None,
 )
 
