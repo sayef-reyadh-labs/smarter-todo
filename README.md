@@ -47,6 +47,31 @@ vercel.json Vercel setup: /api/* goes to backend, everything else to frontend
 AGENTS.md   Branch, commit and PR conventions
 ```
 
+## How it works
+
+### Frontend
+
+```mermaid
+flowchart LR
+    page["Page<br/>HomePage, TaskDetailsPage"] --> comp["Components<br/>TaskForm, TaskList"]
+    page --> api["services/api.ts<br/>calls the backend"]
+    api -->|"HTTP"| backend[("Backend API")]
+```
+
+A page shows the screen and keeps its data, components draw the pieces, and `services/api.ts` is the only place that talks to the backend.
+
+### Backend
+
+```mermaid
+flowchart LR
+    req(["HTTP request"]) --> router["Router<br/>receives the request"]
+    router --> service["Service<br/>business rules"]
+    service --> repo["Repository<br/>database queries"]
+    repo --> db[("Database")]
+```
+
+Each layer has one job: the router handles HTTP, the service decides what is allowed (for example, no due date in the past), and the repository reads and writes the database. The response goes back up the same way.
+
 ## Requirements
 
 - [Python](https://www.python.org/downloads/) 3.10+

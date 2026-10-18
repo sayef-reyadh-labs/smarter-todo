@@ -1,44 +1,44 @@
+# Business rules for tasks (due date check, updated_at); called by the router, stores data via the repository.
 import uuid
-
-from sqlmodel import Session, func, select
+from datetime import date
 
 from app.tasks.models import Task, utc_now
-from app.tasks.schemas import TaskCreate, TaskUpdate
+from app.tasks.repository import TaskRepository
+from app.tasks.schemas import TaskCreate, TaskPage, TaskUpdate
 
 
-def list_tasks(session: Session, offset: int, limit: int) -> list[Task]:
-    statement = select(Task).order_by(Task.created_at.desc(), Task.id.desc()).offset(offset).limit(limit)
-    return list(session.exec(statement).all())
+class TaskRuleError(Exception):
+    """A business rule was broken; main.py turns it into a 409 response."""
 
 
-def count_tasks(session: Session) -> int:
-    return session.exec(select(func.count()).select_from(Task)).one()
+# Business rules only: no HTTP and no database calls, everything stored goes through the repository.
+class TaskService:
+    def __init__(self, repo: TaskRepository) -> None:
+        self.repo = repo
 
+    def list_tasks(self, offset: int, limit: int) -> TaskPage:
+        return TaskPage(items=self.repo.list(offset, limit), total=self.repo.count(), offset=offset, limit=limit)
 
-def get_task(session: Session, task_id: uuid.UUID) -> Task | None:
-    return session.get(Task, task_id)
+    def get_task(self, task_id: uuid.UUID) -> Task | None:
+        return self.repo.get(task_id)
 
+    def create_task(self, data: TaskCreate) -> Task:
+        self._check_due_date(data.due_date)
+        return self.repo.create(Task.model_validate(data))
 
-def create_task(session: Session, data: TaskCreate) -> Task:
-    return _save(session, Task.model_validate(data))
+    def update_task(self, task: Task, data: TaskUpdate) -> Task:
+        changes = data.model_dump(exclude_unset=True)
+        if not changes:
+            return task
+        # Checked only when the date is sent, so completing an overdue task still works.
+        if "due_date" in changes:
+            self._check_due_date(changes["due_date"])
+        changes["updated_at"] = utc_now()
+        return self.repo.update(task, changes)
 
+    def delete_task(self, task: Task) -> None:
+        self.repo.delete(task)
 
-def update_task(session: Session, task: Task, data: TaskUpdate) -> Task:
-    changes = data.model_dump(exclude_unset=True)
-    if not changes:
-        return task
-    task.sqlmodel_update(changes)
-    task.updated_at = utc_now()
-    return _save(session, task)
-
-
-def delete_task(session: Session, task: Task) -> None:
-    session.delete(task)
-    session.commit()
-
-
-def _save(session: Session, task: Task) -> Task:
-    session.add(task)
-    session.commit()
-    session.refresh(task)
-    return task
+    def _check_due_date(self, due_date: date | None) -> None:
+        if due_date and due_date < date.today():
+            raise TaskRuleError("Due date cannot be in the past")

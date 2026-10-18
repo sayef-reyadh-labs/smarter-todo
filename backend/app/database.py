@@ -1,3 +1,4 @@
+# Database engine and the per-request Session that the repository uses.
 from collections.abc import Iterator
 from typing import Annotated
 

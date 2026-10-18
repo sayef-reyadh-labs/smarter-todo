@@ -1,3 +1,4 @@
+// Static page that describes the project.
 import { Typography } from "antd"
 
 export function AboutPage() {

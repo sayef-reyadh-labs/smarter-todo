@@ -1,3 +1,4 @@
+# Request and response shapes; FastAPI validates input against these before any task code runs.
 import uuid
 from datetime import date, datetime, timezone
 from typing import Annotated

@@ -1,3 +1,4 @@
+// Task list page: loads tasks from the API, owns the list state and passes it to the components below.
 import { Alert, App as AntApp, Switch, Typography } from "antd"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"

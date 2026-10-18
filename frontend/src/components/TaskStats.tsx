@@ -1,3 +1,4 @@
+// Done and remaining counts, plus the clear-completed button.
 import { Button, Flex, Popconfirm, Typography } from "antd"
 import type { Task } from "../types/task"
 

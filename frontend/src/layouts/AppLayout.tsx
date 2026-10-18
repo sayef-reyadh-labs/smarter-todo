@@ -1,3 +1,4 @@
+// Page frame: header with navigation and the dark-mode switch, then the current page through <Outlet />.
 import { Layout, Menu, Switch, Typography } from "antd"
 import { Link, Outlet, useLocation } from "react-router"
 import { useTheme } from "../context/ThemeContext"

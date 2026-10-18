@@ -1,3 +1,4 @@
+// Entry point: mounts the React app inside the theme provider.
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import App from "./App"

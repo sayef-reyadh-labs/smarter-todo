@@ -1,3 +1,4 @@
+// Routes and the Ant Design theme; every page renders inside AppLayout.
 import { App as AntApp, ConfigProvider, theme } from "antd"
 import { BrowserRouter, Route, Routes } from "react-router"
 import { useTheme } from "./context/ThemeContext"

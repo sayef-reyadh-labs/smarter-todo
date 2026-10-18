@@ -62,13 +62,16 @@ sequenceDiagram
     participant R as Router (tasks/router.py)
     participant S as Schemas (Pydantic)
     participant V as Service (tasks/service.py)
+    participant P as Repository (tasks/repository.py)
     participant D as Database (SQLModel Session)
     C->>R: POST /api/v1/tasks {title}
     R->>S: validate TaskCreate
     S-->>R: valid / 422
-    R->>V: create_task(session, data)
-    V->>D: session.add(task), commit
-    D-->>V: task with id
+    R->>V: create_task(data)
+    V->>P: create(task)
+    P->>D: session.add(task), commit
+    D-->>P: task with id
+    P-->>V: task
     V-->>R: task
     R-->>C: 201 TaskRead
 ```
@@ -103,8 +106,9 @@ backend/
       router.py        # /api/v1/tasks endpoints (APIRouter)
       schemas.py       # TaskCreate / TaskUpdate / TaskRead (request and response shapes)
       models.py        # Task table
-      service.py       # business rules and database queries (no HTTP)
-      dependencies.py  # valid_task: resolves {task_id} to a Task or answers 404
+      service.py       # TaskService: business rules (no HTTP, no SQL)
+      repository.py    # TaskRepository: every database query for tasks
+      dependencies.py  # get_task_service (session -> repository -> service) and valid_task: resolves {task_id} to a Task or answers 404
     auth/              # (Beta) router, schemas, models (AppUser, RefreshToken), service, dependencies (get_current_user)
     users/             # (Beta) /api/v1/users/me (profile, change name, change password)
     admin/             # (Beta) /api/v1/admin/* (require_admin)
@@ -127,7 +131,7 @@ docs/
   03-tdd.md
 ```
 
-The backend is organised by feature (domain), as recommended for FastAPI projects that will grow: each folder holds its own router, schemas, models, service and dependencies. A **router** parses the request and calls the service; **dependencies** (`Depends`) do the reusable checks, such as loading a task or answering `404`, and later the permission checks; the **service** holds the business rules and database queries through the SQLModel session and knows nothing about HTTP. `main.py` only wires the routers together and adds the catch-all `500` handler.
+The backend is organised by feature (domain), as recommended for FastAPI projects that will grow: each folder holds its own router, schemas, models, service, repository and dependencies. A **router** parses the request and calls the service; **dependencies** (`Depends`) do the reusable checks, such as loading a task or answering `404`, and later the permission checks, and build the service for each request; the **service** holds the business rules (for example, refreshing `updated_at` on every change) and knows nothing about HTTP or SQL; the **repository** is the only code that talks to the database through the SQLModel session. If the data source changes, only the repository is rewritten and the service stays the same. `main.py` only wires the routers together and adds the catch-all `500` handler.
 
 ## 5. Data model
 
@@ -332,10 +336,10 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 
 | Method | Path | Body | Success | Errors | FR |
 |---|---|---|---|---|---|
-| `POST` | `/api/v1/tasks` | `TaskCreate` | `201` `TaskRead` | `422` | FR-01, FR-07 |
+| `POST` | `/api/v1/tasks` | `TaskCreate` | `201` `TaskRead` | `409`, `422` | FR-01, FR-07 |
 | `GET` | `/api/v1/tasks?offset=0&limit=20` | — | `200` `TaskPage` | `422` | FR-02, FR-03 |
 | `GET` | `/api/v1/tasks/{id}` | — | `200` `TaskRead` | `404` | FR-04 |
-| `PATCH` | `/api/v1/tasks/{id}` | `TaskUpdate` | `200` `TaskRead` | `404`, `422` | FR-05, FR-07 |
+| `PATCH` | `/api/v1/tasks/{id}` | `TaskUpdate` | `200` `TaskRead` | `404`, `409`, `422` | FR-05, FR-07 |
 | `DELETE` | `/api/v1/tasks/{id}` | — | `204` | `404` | FR-06 |
 | `GET` | `/api/health` | — | `200` `{"status":"ok"}` | — | FR-10 |
 
@@ -454,6 +458,8 @@ Validation errors (`422`) use FastAPI's built-in list format, which names the fa
 ```
 
 A catch-all exception handler returns `500` with `{"detail": "Internal server error"}` and logs the real error (NFR-07).
+
+The service signals a broken business rule (a due date in the past) by raising `TaskRuleError`; a handler in `main.py` turns it into `409` with `{"detail": "<message>"}`. The service never imports HTTP classes.
 
 ### 6.5 Design rules
 - Plural nouns for resources (`/tasks`, `/groups`, `/members`), no verbs in paths (except the `auth` actions).
