@@ -1,3 +1,4 @@
+// TypeScript shapes that mirror the backend schemas.
 export type Task = {
   id: string
   title: string

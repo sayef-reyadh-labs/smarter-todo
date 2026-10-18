@@ -1,3 +1,4 @@
+// Every backend call lives here; pages never call fetch directly.
 import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
 
 export const PAGE_SIZE = 20

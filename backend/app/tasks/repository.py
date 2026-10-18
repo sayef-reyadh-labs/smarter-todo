@@ -1,3 +1,4 @@
+# Data access layer: every database query for tasks lives here, called only by the service.
 import uuid
 
 from sqlmodel import Session, func, select

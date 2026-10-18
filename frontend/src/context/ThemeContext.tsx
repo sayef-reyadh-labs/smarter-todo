@@ -1,3 +1,4 @@
+// Shares dark mode with any component through useContext, so it is not passed down as props.
 import { createContext, useContext, useState, type ReactNode } from "react"
 
 type ThemeContextValue = {

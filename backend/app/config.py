@@ -1,3 +1,4 @@
+# Settings from environment variables; chooses the database URL (Supabase in production, SQLite locally).
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 

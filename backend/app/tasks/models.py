@@ -1,3 +1,4 @@
+# The `task` database table; only the repository reads and writes it.
 import uuid
 from datetime import date, datetime, timezone
 

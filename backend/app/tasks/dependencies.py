@@ -1,3 +1,4 @@
+# Per-request wiring: builds session -> repository -> service, and loads the task for {task_id} routes.
 import uuid
 from typing import Annotated
 

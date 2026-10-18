@@ -1,3 +1,4 @@
+# App entry point: creates the FastAPI app, mounts the tasks router, maps errors to JSON and serves the frontend build.
 import logging
 
 from fastapi import FastAPI, Request
