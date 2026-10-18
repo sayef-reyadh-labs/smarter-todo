@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.config import BACKEND_DIR
 from app.database import create_db_and_tables
 from app.tasks.router import router as tasks_router
+from app.tasks.service import TaskRuleError
 
 logger = logging.getLogger("smarter_todo")
 
@@ -20,6 +21,11 @@ app.include_router(tasks_router)
 
 # Run at import (not in a lifespan hook) so it also works on serverless hosts.
 create_db_and_tables()
+
+
+@app.exception_handler(TaskRuleError)
+async def task_rule_error(request: Request, exc: TaskRuleError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 # Log the real error, but never send stack traces or database details to the client.
