@@ -126,7 +126,7 @@ npm run dev
 
 Run `pip install -r requirements.txt` or `npm install` again only when someone adds or changes a dependency.
 
-Open http://localhost:5173. Vite forwards `/api` requests to the backend on port 8000. API docs: http://localhost:8000/docs.
+Open http://localhost:5173. Vite forwards `/api` requests to the backend on port 8000. API docs: http://localhost:8000/api/docs (on Vercel: `/api/docs`; `/docs` redirects there).
 
 To run it the way Vercel does instead, from the project root:
 

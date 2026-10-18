@@ -51,7 +51,7 @@ flowchart LR
 `vercel.json` already routes `/api/*` to the backend service and everything else to the frontend, so every backend route must start with `/api`. For the same reason the API docs are served at `/api/docs` (not FastAPI's default `/docs`):
 
 ```python
-app = FastAPI(title="Smarter Todo API", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+app = FastAPI(title="Smarter Todo API", docs_url="/api/docs", openapi_url="/api/openapi.json", swagger_ui_oauth2_redirect_url="/api/docs/oauth2-redirect", redoc_url=None)
 ```
 
 ### 3.1 Request flow — MVP
@@ -513,6 +513,7 @@ flowchart LR
 
 - The repo is connected to Vercel through the Vercel GitHub integration (already set up by the template); a push to `main` deploys to production.
 - Environment variables from section 8 are set in the Vercel project settings.
+- `vercel.json` has a rewrite inside the `frontend` service that sends every path without a file to `index.html`, so reloading `/tasks/<id>` lets React Router handle the route instead of returning a Vercel 404. `/docs` redirects to `/api/docs`.
 - Before merging a change that includes a new migration, run `alembic upgrade head` against Supabase (section 12), then merge so Vercel deploys the matching code.
 
 ## 10. Auth and RBAC design — Beta
