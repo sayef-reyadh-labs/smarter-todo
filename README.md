@@ -49,90 +49,28 @@ AGENTS.md   Branch, commit and PR conventions
 
 ## How it works
 
-### Frontend: file flow
+### Frontend
 
 ```mermaid
-flowchart TD
-    main["main.tsx<br/>mounts the app"] --> theme["context/ThemeContext.tsx<br/>dark mode via useContext"]
-    theme --> app["App.tsx<br/>routes and Ant Design theme"]
-    app --> layout["layouts/AppLayout.tsx<br/>header, navigation, Outlet"]
-    layout --> home["pages/HomePage<br/>/"]
-    layout --> details["pages/TaskDetailsPage<br/>/tasks/:taskId"]
-    layout --> about["pages/AboutPage<br/>/about"]
-    home --> form["components/TaskForm.tsx"]
-    home --> stats["components/TaskStats.tsx"]
-    home --> list["components/TaskList.tsx"]
-    form --> utils["utils/taskForm.ts<br/>form values to API shape, rules"]
-    details --> utils
-    home --> api["services/api.ts<br/>every backend call"]
-    details --> api
-    types["types/task.ts<br/>Task, TaskPage, TaskInput"] -.-> api
-    api -->|"fetch /api/v1/tasks"| backend[("Backend API")]
+flowchart LR
+    page["Page<br/>HomePage, TaskDetailsPage"] --> comp["Components<br/>TaskForm, TaskList"]
+    page --> api["services/api.ts<br/>calls the backend"]
+    api -->|"HTTP"| backend[("Backend API")]
 ```
 
-### Backend: the path of one request
+A page shows the screen and keeps its data, components draw the pieces, and `services/api.ts` is the only place that talks to the backend.
+
+### Backend
 
 ```mermaid
-flowchart TD
-    client(["Client"]) -->|"1. HTTP request"| main["main.py<br/>app and error handlers"]
-    main --> router["router.py<br/>the endpoint function"]
-    router -->|"2. check the body"| schemas["schemas.py<br/>TaskCreate, TaskUpdate"]
-    router -->|"3. call"| service["service.py<br/>business rules, e.g. due date check"]
-    service -->|"4. ask for data"| repo["repository.py<br/>the database queries"]
-    repo -->|"5. run the query<br/>session.exec, add, commit"| session["Session<br/>this request's database connection"]
-    session -->|"6. SQL"| db[("Database<br/>SQLite locally, Supabase in production")]
-    models["models.py<br/>Task table definition"] -.->|"describes the rows"| repo
+flowchart LR
+    req(["HTTP request"]) --> router["Router<br/>receives the request"]
+    router --> service["Service<br/>business rules"]
+    service --> repo["Repository<br/>database queries"]
+    repo --> db[("Database")]
 ```
 
-The answer travels back up the same path: database, Session, repository, service, router, then the JSON response. Only the repository talks to the Session, so the service and router never write SQL.
-
-### Backend: where the Session comes from
-
-FastAPI builds these objects again for every request, in `dependencies.py`:
-
-```mermaid
-flowchart TD
-    config["config.py<br/>reads DATABASE_URL"] --> engine["database.py<br/>creates the engine (SQLite or Supabase)"]
-    engine --> getsession["database.py get_session()<br/>opens one Session for this request"]
-    getsession -->|"session"| deps["dependencies.py<br/>get_task_service()"]
-    deps -->|"TaskRepository(session)"| repo["repository.py<br/>keeps the session"]
-    repo -->|"TaskService(repo)"| service["service.py<br/>keeps the repository"]
-    service -->|"Depends(get_task_service)<br/>passed in as the service argument"| router["router.py<br/>the endpoint function"]
-```
-
-Errors take a short cut: if the service raises `TaskRuleError`, `main.py` answers `409`; any other unexpected error becomes a `500`.
-
-### Request flow: creating a task
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant P as HomePage and TaskForm
-    participant A as services/api.ts
-    participant R as router.py
-    participant V as service.py
-    participant Q as repository.py
-    participant S as Session (database.py)
-    participant D as Database
-    U->>P: fill the form and press Add
-    P->>A: createTask(data)
-    A->>R: POST /api/v1/tasks (Vite proxy locally, Vercel rewrite in production)
-    R->>R: schemas.py validates TaskCreate (422 if invalid)
-    R->>V: create_task(data)
-    V->>V: due date must not be in the past (409 if it is)
-    V->>Q: create(task)
-    Q->>S: session.add(task), session.commit()
-    S->>D: INSERT INTO task
-    D-->>S: saved row with id
-    S-->>Q: task refreshed with id
-    Q-->>V: task
-    V-->>R: task
-    R-->>A: 201 TaskRead
-    A-->>P: new task
-    P->>A: reload the list (GET /api/v1/tasks)
-    A-->>P: TaskPage with items and total
-    P-->>U: updated list
-```
+Each layer has one job: the router handles HTTP, the service decides what is allowed (for example, no due date in the past), and the repository reads and writes the database. The response goes back up the same way.
 
 ## Requirements
 
