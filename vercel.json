@@ -14,9 +14,6 @@
       ]
     }
   },
-  "redirects": [
-    { "source": "/docs", "destination": "/api/docs", "permanent": false }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
