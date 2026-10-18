@@ -88,6 +88,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1   # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head          # creates the tables; run again after pulling a new migration
 fastapi dev main.py
 
 # frontend
