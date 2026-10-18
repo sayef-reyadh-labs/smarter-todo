@@ -1,4 +1,4 @@
-import type { Task, TaskInput, TaskPatch } from "../types/task"
+import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
 
 export const PAGE_SIZE = 20
 
@@ -29,7 +29,7 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 
 // Central place for every backend call, like smart-todo's apiService.
 export const apiService = {
-  getTasks: (offset = 0, limit = PAGE_SIZE) => request<Task[]>(`${BASE}?offset=${offset}&limit=${limit}`),
+  getTasks: (offset = 0, limit = PAGE_SIZE) => request<TaskPage>(`${BASE}?offset=${offset}&limit=${limit}`),
 
   getTask: (id: string) => request<Task>(`${BASE}/${id}`),
 

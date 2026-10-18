@@ -1,6 +1,6 @@
 import uuid
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.tasks.models import Task, utc_now
 from app.tasks.schemas import TaskCreate, TaskUpdate
@@ -9,6 +9,10 @@ from app.tasks.schemas import TaskCreate, TaskUpdate
 def list_tasks(session: Session, offset: int, limit: int) -> list[Task]:
     statement = select(Task).order_by(Task.created_at.desc(), Task.id.desc()).offset(offset).limit(limit)
     return list(session.exec(statement).all())
+
+
+def count_tasks(session: Session) -> int:
+    return session.exec(select(func.count()).select_from(Task)).one()
 
 
 def get_task(session: Session, task_id: uuid.UUID) -> Task | None:

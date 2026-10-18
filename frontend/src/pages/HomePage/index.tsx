@@ -16,16 +16,18 @@ export function HomePage() {
   // useState stores a value; calling its setter re-renders the page with the new value.
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [hasMore, setHasMore] = useState(false)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState("")
   const [showDone, setShowDone] = useState(true)
+
+  const hasMore = tasks.length < total
 
   // Reload as many rows as are already shown, so edits and deletes keep the list in place.
   const reload = async (shown: number) => {
     const size = Math.min(Math.max(shown, PAGE_SIZE), 100)
-    const rows = await apiService.getTasks(0, size)
-    setTasks(rows)
-    setHasMore(rows.length === size)
+    const page = await apiService.getTasks(0, size)
+    setTasks(page.items)
+    setTotal(page.total)
   }
 
   // useEffect runs after render; the empty [] means only once, so tasks load when the page opens.
@@ -78,9 +80,9 @@ export function HomePage() {
 
   const loadMore = async () => {
     try {
-      const rows = await apiService.getTasks(tasks.length, PAGE_SIZE)
-      setTasks((prev) => [...prev, ...rows])
-      setHasMore(rows.length === PAGE_SIZE)
+      const page = await apiService.getTasks(tasks.length, PAGE_SIZE)
+      setTasks((prev) => [...prev, ...page.items])
+      setTotal(page.total)
     } catch (err) {
       message.error(messageOf(err))
     }
@@ -103,6 +105,9 @@ export function HomePage() {
           <TaskStats tasks={tasks} onClearCompleted={clearCompleted} />
           <Switch size="small" checked={showDone} onChange={setShowDone} />{" "}
           <Typography.Text type="secondary">Show completed</Typography.Text>
+          <Typography.Paragraph type="secondary" style={{ margin: "8px 0 0" }}>
+            Showing {tasks.length} of {total}
+          </Typography.Paragraph>
         </>
       )}
 

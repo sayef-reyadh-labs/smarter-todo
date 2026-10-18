@@ -45,3 +45,11 @@ class TaskRead(TaskBase):
     @classmethod
     def as_utc(cls, value: datetime) -> datetime:
         return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+# One page of the list; total counts all tasks, not just this page.
+class TaskPage(SQLModel):
+    items: list[TaskRead]
+    total: int
+    offset: int
+    limit: int

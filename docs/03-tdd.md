@@ -275,6 +275,7 @@ erDiagram
 | `TaskCreate` | `POST` task body | `title`, `description?`, `due_date?` (+ `assignee_id?` for group tasks) | MVP |
 | `TaskUpdate` | `PATCH` task body | all optional: `title`, `description`, `due_date`, `is_completed` (+ `assignee_id` for group tasks) | MVP |
 | `TaskRead` | Task responses | all task columns | MVP |
+| `TaskPage` | `GET` task list response | `items: TaskRead[]`, `total`, `offset`, `limit` | MVP |
 | `SignupRequest` | Sign up | `email`, `name`, `password` | Beta |
 | `LoginRequest` | Log in | `email`, `password` | Beta |
 | `TokenResponse` | Login / refresh | `access_token`, `token_type: "bearer"`, `expires_in` | Beta |
@@ -332,7 +333,7 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 | Method | Path | Body | Success | Errors | FR |
 |---|---|---|---|---|---|
 | `POST` | `/api/v1/tasks` | `TaskCreate` | `201` `TaskRead` | `422` | FR-01, FR-07 |
-| `GET` | `/api/v1/tasks?offset=0&limit=20` | — | `200` `TaskRead[]` | `422` | FR-02, FR-03 |
+| `GET` | `/api/v1/tasks?offset=0&limit=20` | — | `200` `TaskPage` | `422` | FR-02, FR-03 |
 | `GET` | `/api/v1/tasks/{id}` | — | `200` `TaskRead` | `404` | FR-04 |
 | `PATCH` | `/api/v1/tasks/{id}` | `TaskUpdate` | `200` `TaskRead` | `404`, `422` | FR-05, FR-07 |
 | `DELETE` | `/api/v1/tasks/{id}` | — | `204` | `404` | FR-06 |
@@ -458,7 +459,7 @@ A catch-all exception handler returns `500` with `{"detail": "Internal server er
 - Plural nouns for resources (`/tasks`, `/groups`, `/members`), no verbs in paths (except the `auth` actions).
 - Nested paths show ownership: a group's tasks live under `/groups/{group_id}/tasks`.
 - `PATCH` for partial update; only fields sent are changed (`model_dump(exclude_unset=True)`).
-- Lists are ordered by `created_at` descending and take `offset` / `limit`.
+- Lists are ordered by `created_at` descending and take `offset` / `limit`. The MVP task list answers with a `TaskPage` (`items`, `total`, `offset`, `limit`); `total` is a second `COUNT(*)` query, so the client knows when it has reached the last page.
 - `404` (not `403`) when the caller is not allowed to know a resource exists; `403` when they can see it but not do the action.
 - `/api/v1` prefix so a future `v2` of the API can live next to it.
 
