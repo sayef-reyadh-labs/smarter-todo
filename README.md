@@ -47,6 +47,76 @@ vercel.json Vercel setup: /api/* goes to backend, everything else to frontend
 AGENTS.md   Branch, commit and PR conventions
 ```
 
+## How it works
+
+### Frontend: file flow
+
+```mermaid
+flowchart TD
+    main["main.tsx<br/>mounts the app"] --> theme["context/ThemeContext.tsx<br/>dark mode via useContext"]
+    theme --> app["App.tsx<br/>routes and Ant Design theme"]
+    app --> layout["layouts/AppLayout.tsx<br/>header, navigation, Outlet"]
+    layout --> home["pages/HomePage<br/>/"]
+    layout --> details["pages/TaskDetailsPage<br/>/tasks/:taskId"]
+    layout --> about["pages/AboutPage<br/>/about"]
+    home --> form["components/TaskForm.tsx"]
+    home --> stats["components/TaskStats.tsx"]
+    home --> list["components/TaskList.tsx"]
+    form --> utils["utils/taskForm.ts<br/>form values to API shape, rules"]
+    details --> utils
+    home --> api["services/api.ts<br/>every backend call"]
+    details --> api
+    types["types/task.ts<br/>Task, TaskPage, TaskInput"] -.-> api
+    api -->|"fetch /api/v1/tasks"| backend[("Backend API")]
+```
+
+### Backend: file flow
+
+```mermaid
+flowchart TD
+    client[("Frontend / API client")] -->|"HTTP /api/v1/tasks"| main["main.py<br/>app, error handlers"]
+    main --> router["app/tasks/router.py<br/>endpoints"]
+    router --> schemas["app/tasks/schemas.py<br/>validate input, shape output"]
+    router --> deps["app/tasks/dependencies.py<br/>build service, load task or 404"]
+    deps --> service["app/tasks/service.py<br/>business rules"]
+    service --> repo["app/tasks/repository.py<br/>database queries"]
+    repo --> models["app/tasks/models.py<br/>Task table"]
+    deps --> db["app/database.py<br/>engine and Session"]
+    db --> config["app/config.py<br/>DATABASE_URL, SQLite or Supabase"]
+    models --> store[("SQLite local / Supabase PostgreSQL")]
+    db --> store
+    service -. "TaskRuleError" .-> main
+```
+
+### Request flow: creating a task
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant P as HomePage and TaskForm
+    participant A as services/api.ts
+    participant R as router.py
+    participant V as service.py
+    participant Q as repository.py
+    participant D as Database
+    U->>P: fill the form and press Add
+    P->>A: createTask(data)
+    A->>R: POST /api/v1/tasks (Vite proxy locally, Vercel rewrite in production)
+    R->>R: schemas.py validates TaskCreate (422 if invalid)
+    R->>V: create_task(data)
+    V->>V: due date must not be in the past (409 if it is)
+    V->>Q: create(task)
+    Q->>D: insert and commit
+    D-->>Q: saved task with id
+    Q-->>V: task
+    V-->>R: task
+    R-->>A: 201 TaskRead
+    A-->>P: new task
+    P->>A: reload the list (GET /api/v1/tasks)
+    A-->>P: TaskPage with items and total
+    P-->>U: updated list
+```
+
 ## Requirements
 
 - [Python](https://www.python.org/downloads/) 3.10+
