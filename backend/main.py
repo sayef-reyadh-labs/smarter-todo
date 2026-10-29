@@ -1,13 +1,14 @@
-# App entry point: creates the FastAPI app, mounts the tasks router, maps errors to JSON and serves the frontend build.
+# App entry point: creates the FastAPI app, mounts the routers, maps errors to JSON and serves the frontend build.
 import logging
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.auth.router import router as auth_router
 from app.config import BACKEND_DIR
-from app.database import create_db_and_tables
+from app.errors import AppError
 from app.tasks.router import router as tasks_router
-from app.tasks.service import TaskRuleError
+from app.users.router import router as users_router
 
 logger = logging.getLogger("smarter_todo")
 
@@ -18,15 +19,16 @@ app = FastAPI(
     redoc_url=None,
 )
 
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(tasks_router)
 
-# Run at import (not in a lifespan hook) so it also works on serverless hosts.
-create_db_and_tables()
 
-
-@app.exception_handler(TaskRuleError)
-async def task_rule_error(request: Request, exc: TaskRuleError) -> JSONResponse:
-    return JSONResponse(status_code=409, content={"detail": str(exc)})
+# Services raise AppError subclasses (400, 401, 409); the status code comes from the class.
+@app.exception_handler(AppError)
+async def app_error(request: Request, exc: AppError) -> JSONResponse:
+    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message}, headers=headers)
 
 
 # Log the real error, but never send stack traces or database details to the client.

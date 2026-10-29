@@ -2,7 +2,7 @@
 
 A task app for students: keep your own to-do list, and share task lists with your team for group projects. Built as a REST API with FastAPI and a React frontend, deployed on Vercel.
 
-> **Status:** MVP in progress. The task CRUD API (`/api/v1/tasks`) and an Ant Design frontend work locally with SQLite; accounts, roles and group tasks are planned for the Beta.
+> **Status:** MVP done; Beta in progress. Sign up, log in, private tasks and a profile page work (`/api/v1/auth`, `/api/v1/users/me`, `/api/v1/tasks`). Roles with an admin dashboard, group tasks and security hardening are planned next.
 
 ## Features
 
@@ -72,6 +72,17 @@ flowchart LR
 
 Each layer has one job: the router handles HTTP, the service decides what is allowed (for example, no due date in the past), and the repository reads and writes the database. The response goes back up the same way.
 
+### Logging in
+
+```mermaid
+flowchart LR
+    login["Log in<br/>email and password"] --> tokens["Server answers with<br/>access token + refresh cookie"]
+    tokens --> call["Every request sends<br/>Authorization: Bearer token"]
+    call --> me["Server finds the user<br/>and shows only their tasks"]
+```
+
+The access token (15 minutes) is kept in memory and sent with each request. The refresh token (7 days) is a random value in an `HttpOnly` cookie; when the access token expires, `services/api.ts` swaps it for a new pair without asking you to log in again.
+
 ## Requirements
 
 - [Python](https://www.python.org/downloads/) 3.10+
@@ -81,7 +92,7 @@ Each layer has one job: the router handles HTTP, the service decides what is all
 
 ## Run locally
 
-You need two terminals: one for the backend and one for the frontend. Todos are saved in a local SQLite file, `backend/smarter_todo.db`, which is created automatically on the first run and is not committed.
+You need two terminals: one for the backend and one for the frontend. Todos are saved in a local SQLite file, `backend/smarter_todo.db`, which is created by `alembic upgrade head` and is not committed.
 
 ### First time (initial setup)
 
@@ -94,8 +105,11 @@ cd backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1      # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head           # creates the database tables
 fastapi dev main.py
 ```
+
+Sign up in the app, then log in; every task belongs to your account.
 
 **Frontend** (terminal 2):
 
@@ -114,6 +128,7 @@ The virtual environment and `node_modules` already exist, so skip the install st
 ```bash
 cd backend
 .venv\Scripts\Activate.ps1      # macOS/Linux: source .venv/bin/activate
+alembic upgrade head           # only needed after pulling a change that adds a migration
 fastapi dev main.py
 ```
 
@@ -137,7 +152,19 @@ vercel dev -L
 
 > Add new Python packages to `backend/requirements.txt`.
 
-> **Reset the data:** stop the backend and delete `backend/smarter_todo.db`.
+> **Reset the data:** stop the backend, delete `backend/smarter_todo.db` and run `alembic upgrade head` again.
+
+### Changing the database (migrations)
+
+The tables are created and changed only by Alembic migrations in `backend/alembic/versions/`; the app never creates tables itself. Run `alembic upgrade head` from `backend/` to apply them.
+
+To migrate the hosted Supabase database, run it from your machine **before** merging code that needs the new schema, with the session pooler URL (port `5432`):
+
+```bash
+MIGRATION_DATABASE_URL="<supabase session pooler url>" alembic upgrade head    # PowerShell: $env:MIGRATION_DATABASE_URL="..."
+```
+
+> `MIGRATION_DATABASE_URL` wins over `DATABASE_URL`. Remove it from your shell afterwards, or a later local `alembic` command will change the hosted database.
 
 ## Environment variables
 
@@ -147,9 +174,10 @@ Locally nothing needs to be set: the app uses the SQLite file `backend/smarter_t
 |---|---|---|
 | `DATABASE_URL` | MVP (production) | Supabase transaction pooler URL (port `6543`), e.g. `postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`. Leave unset locally to use SQLite. Vercel cannot keep a SQLite file between requests, so without a hosted database the deployed app loses its data. |
 | `POSTGRES_URL` | MVP (production) | Set automatically by the Supabase integration on Vercel. Used when `DATABASE_URL` is not set; `postgres://` and the Supabase-only `supa=` parameter are handled for you. |
-| `JWT_SECRET` | Beta | Long random string, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `ACCESS_TOKEN_MINUTES` | Beta | Default `15` |
-| `REFRESH_TOKEN_DAYS` | Beta | Default `7` |
+| `JWT_SECRET` | Auth (production) | Long random string, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"`. **Required on Vercel** (logging in fails without it); locally a fixed development value is used. |
+| `ACCESS_TOKEN_MINUTES` | Auth | Default `15` |
+| `REFRESH_TOKEN_DAYS` | Auth | Default `7` |
+| `MIGRATION_DATABASE_URL` | Migrations only | Supabase session pooler URL (port `5432`) used when you run Alembic against the hosted database. Not set on Vercel. |
 
 Never commit secrets or `.env` files. See [TDD, section 8](docs/03-tdd.md#8-configuration) for the Supabase setup.
 
@@ -173,7 +201,10 @@ Every change starts from a GitHub issue. Branch, commit and pull request rules a
 - **"Running scripts is disabled" in PowerShell:** run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 - **`fastapi` not found:** activate the virtual environment first.
 - **`ModuleNotFoundError: sqlmodel`:** run `pip install -r requirements.txt` inside the activated virtual environment.
-- **Todos look wrong or the database is corrupted:** stop the backend and delete `backend/smarter_todo.db`; it is recreated on the next start.
+- **Todos look wrong or the database is corrupted:** stop the backend, delete `backend/smarter_todo.db` and run `alembic upgrade head`.
+- **`no such table` or `Request failed: 500` right after pulling:** run `alembic upgrade head` in `backend/`.
+- **Everything redirects to the login page:** log in or sign up first; tasks and the profile need an account.
+- **Login works but you are logged out on reload (Safari):** the refresh cookie is `Secure`; use Chrome or Firefox on `http://localhost`, or open the app over HTTPS.
 - **`Request failed: 500` in the app:** the backend isn't running.
 - **App at localhost:8000 shows an old version:** delete `frontend/dist`.
 - **Vercel build fails:** check **Build Logs** in the Vercel dashboard, and make sure `npm run build` works in `frontend/`.

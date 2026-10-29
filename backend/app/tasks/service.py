@@ -2,12 +2,14 @@
 import uuid
 from datetime import date
 
-from app.tasks.models import Task, utc_now
+from app.clock import utc_now
+from app.errors import ConflictError
+from app.tasks.models import Task
 from app.tasks.repository import TaskRepository
 from app.tasks.schemas import TaskCreate, TaskPage, TaskUpdate
 
 
-class TaskRuleError(Exception):
+class TaskRuleError(ConflictError):
     """A business rule was broken; main.py turns it into a 409 response."""
 
 
@@ -24,7 +26,7 @@ class TaskService:
 
     def create_task(self, data: TaskCreate) -> Task:
         self._check_due_date(data.due_date)
-        return self.repo.create(Task.model_validate(data))
+        return self.repo.create(Task.model_validate(data, update={"owner_id": self.repo.owner_id}))
 
     def update_task(self, task: Task, data: TaskUpdate) -> Task:
         changes = data.model_dump(exclude_unset=True)
