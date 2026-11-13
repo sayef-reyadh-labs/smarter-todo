@@ -6,7 +6,7 @@ from app.auth.repository import RefreshTokenRepository, UserRepository
 from app.auth.schemas import LoginRequest, SignupRequest
 from app.clock import utc_now
 from app.config import settings
-from app.errors import ConflictError, UnauthorizedError
+from app.errors import ConflictError, ForbiddenError, UnauthorizedError
 from app.security import (
     create_access_token,
     hash_password,
@@ -41,6 +41,8 @@ class AuthService:
             raise UnauthorizedError("Invalid email or password")
         if not verify_password(data.password, user.password_hash):
             raise UnauthorizedError("Invalid email or password")
+        if user.is_banned:
+            raise ForbiddenError("Account banned")
         access_token, refresh_token = self._issue_tokens(user)
         return user, access_token, refresh_token
 
@@ -59,6 +61,8 @@ class AuthService:
         user = self.users.get(stored.user_id)
         if user is None:
             raise UnauthorizedError("Invalid refresh token")
+        if user.is_banned:
+            raise ForbiddenError("Account banned")
         self.tokens.revoke(stored)
         return self._issue_tokens(user)
 
