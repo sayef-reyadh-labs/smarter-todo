@@ -10,7 +10,7 @@ from app.auth.models import AppUser
 from app.auth.repository import RefreshTokenRepository, UserRepository
 from app.auth.service import AuthService
 from app.database import SessionDep
-from app.errors import UnauthorizedError
+from app.errors import ForbiddenError, UnauthorizedError
 from app.security import decode_access_token
 
 # auto_error=False so a missing header gives our own 401 instead of FastAPI's default.
@@ -37,7 +37,20 @@ def get_current_user(
     user = UserRepository(session).get(user_id)
     if user is None:
         raise UnauthorizedError("Invalid or expired token")
+    # Checked on every request, so a ban works even for an access token that has not expired yet.
+    if user.is_banned:
+        raise ForbiddenError("Account banned")
     return user
 
 
 CurrentUser = Annotated[AppUser, Depends(get_current_user)]
+
+
+# The role comes from the database, not the token, so a role change applies on the next request.
+def require_admin(user: CurrentUser) -> AppUser:
+    if user.role != "admin":
+        raise ForbiddenError("Admin only")
+    return user
+
+
+AdminUser = Annotated[AppUser, Depends(require_admin)]

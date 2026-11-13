@@ -19,6 +19,7 @@ export function AppLayout() {
     ? [
         { key: "/", label: <Link to="/">Home</Link> },
         { key: "/profile", label: <Link to="/profile">Profile</Link> },
+        ...(user.role === "admin" ? [{ key: "/admin", label: <Link to="/admin">Admin</Link> }] : []),
         { key: "/about", label: <Link to="/about">About</Link> },
       ]
     : [
@@ -50,7 +51,7 @@ export function AppLayout() {
         )}
         <Switch checked={darkMode} onChange={toggleDark} checkedChildren="Dark" unCheckedChildren="Light" />
       </Layout.Header>
-      <Layout.Content style={{ maxWidth: 720, width: "100%", margin: "0 auto", padding: "32px 16px" }}>
+      <Layout.Content style={{ maxWidth: pathname === "/admin" ? 1100 : 720, width: "100%", margin: "0 auto", padding: "32px 16px" }}>
         <Outlet />
       </Layout.Content>
     </Layout>

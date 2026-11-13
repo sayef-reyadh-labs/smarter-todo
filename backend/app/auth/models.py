@@ -16,6 +16,9 @@ class AppUser(SQLModel, table=True):
     name: str = Field(max_length=100)
     password_hash: str  # Argon2 hash; never sent to the client
     role: str = Field(default="user", max_length=10)
+    is_banned: bool = False
+    banned_at: datetime | None = None
+    ban_reason: str | None = Field(default=None, max_length=500)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
