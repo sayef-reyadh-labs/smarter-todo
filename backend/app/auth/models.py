@@ -19,6 +19,8 @@ class AppUser(SQLModel, table=True):
     is_banned: bool = False
     banned_at: datetime | None = None
     ban_reason: str | None = Field(default=None, max_length=500)
+    failed_login_count: int = 0  # wrong passwords in a row; reset on a successful login
+    locked_until: datetime | None = None  # logins are refused until this moment
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
