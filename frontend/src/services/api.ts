@@ -1,6 +1,6 @@
 // Every backend call lives here; pages never call fetch directly. Also keeps the access token and refreshes it.
 import type { LoginInput, PasswordChangeInput, SignupInput, TokenResponse, User } from "../types/auth"
-import type { AdminStats, AdminTask, AdminUser, Page } from "../types/admin"
+import type { AdminActivity, AdminStats, AdminTask, AdminUser, Page } from "../types/admin"
 import type { Group, GroupTask, GroupTaskInput, GroupTaskPatch, Member } from "../types/group"
 import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
 import { HttpStatus } from "../utils/httpStatus"
@@ -136,6 +136,11 @@ export const apiService = {
   getAdminTasks: (offset = 0, limit = 10) => request<Page<AdminTask>>(`${ADMIN}/tasks?offset=${offset}&limit=${limit}`),
 
   deleteAdminTask: (id: string) => request<void>(`${ADMIN}/tasks/${id}`, { method: "DELETE" }),
+
+  getAdminActivity: (offset = 0, limit = 10, action?: string) =>
+    request<Page<AdminActivity>>(
+      `${ADMIN}/activity?offset=${offset}&limit=${limit}${action ? `&action=${encodeURIComponent(action)}` : ""}`,
+    ),
 
   getGroups: () => request<Group[]>(GROUPS),
 

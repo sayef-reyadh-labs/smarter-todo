@@ -3,9 +3,12 @@ from http import HTTPStatus
 
 from fastapi import APIRouter
 
+from app.activity.actions import ActivityAction
+from app.activity.dependencies import UserActivityDep
 from app.auth.dependencies import CurrentUser
 from app.auth.models import AppUser
 from app.auth.schemas import UserRead
+from app.errors import AppError
 from app.users.dependencies import UserServiceDep
 from app.users.schemas import PasswordChange, ProfileUpdate
 
@@ -19,11 +22,18 @@ def get_me(user: CurrentUser) -> AppUser:
 
 
 @router.patch("/me", response_model=UserRead)
-def update_me(user: CurrentUser, data: ProfileUpdate, service: UserServiceDep) -> AppUser:
-    return service.update_profile(user, data)
+def update_me(user: CurrentUser, data: ProfileUpdate, service: UserServiceDep, activity: UserActivityDep) -> AppUser:
+    updated = service.update_profile(user, data)
+    activity.log(ActivityAction.PROFILE_UPDATED)
+    return updated
 
 
 # 204 on success; 400 if the current password is wrong. All sessions are logged out.
 @router.post("/me/password", status_code=HTTPStatus.NO_CONTENT)
-def change_password(user: CurrentUser, data: PasswordChange, service: UserServiceDep) -> None:
-    service.change_password(user, data)
+def change_password(user: CurrentUser, data: PasswordChange, service: UserServiceDep, activity: UserActivityDep) -> None:
+    try:
+        service.change_password(user, data)
+    except AppError as exc:
+        activity.log(ActivityAction.PASSWORD_CHANGE_FAILED, detail=exc.message)
+        raise
+    activity.log(ActivityAction.PASSWORD_CHANGED)

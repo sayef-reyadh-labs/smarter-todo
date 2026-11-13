@@ -1,12 +1,13 @@
 // Admin dashboard at /admin: stats, user management (role, ban, unban) and removing tasks.
 import { Alert, App as AntApp, Input, Modal, Typography } from "antd"
 import { useEffect, useState } from "react"
+import { AdminActivityTable } from "../../components/AdminActivityTable"
 import { AdminStatsCards } from "../../components/AdminStatsCards"
 import { AdminTasksTable } from "../../components/AdminTasksTable"
 import { AdminUsersTable } from "../../components/AdminUsersTable"
 import { useAuth } from "../../context/AuthContext"
 import { apiService } from "../../services/api"
-import type { AdminStats, AdminTask, AdminUser, Page } from "../../types/admin"
+import type { AdminActivity, AdminStats, AdminTask, AdminUser, Page } from "../../types/admin"
 
 const PAGE_SIZE = 10
 
@@ -18,21 +19,26 @@ export function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<Page<AdminUser> | null>(null)
   const [tasks, setTasks] = useState<Page<AdminTask> | null>(null)
+  const [activity, setActivity] = useState<Page<AdminActivity> | null>(null)
   const [userPage, setUserPage] = useState(1)
   const [taskPage, setTaskPage] = useState(1)
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityAction, setActivityAction] = useState<string | undefined>()
   const [error, setError] = useState("")
   const [banTarget, setBanTarget] = useState<AdminUser | null>(null)
   const [banReason, setBanReason] = useState("")
 
-  const reload = async (uPage = userPage, tPage = taskPage) => {
-    const [s, u, t] = await Promise.all([
+  const reload = async (uPage = userPage, tPage = taskPage, aPage = activityPage, action = activityAction) => {
+    const [s, u, t, a] = await Promise.all([
       apiService.getAdminStats(),
       apiService.getAdminUsers((uPage - 1) * PAGE_SIZE, PAGE_SIZE),
       apiService.getAdminTasks((tPage - 1) * PAGE_SIZE, PAGE_SIZE),
+      apiService.getAdminActivity((aPage - 1) * PAGE_SIZE, PAGE_SIZE, action),
     ])
     setStats(s)
     setUsers(u)
     setTasks(t)
+    setActivity(a)
   }
 
   useEffect(() => {
@@ -70,6 +76,25 @@ export function AdminPage() {
     setTaskPage(page)
     try {
       await reload(userPage, page)
+    } catch (err) {
+      message.error(messageOf(err))
+    }
+  }
+
+  const changeActivityPage = async (page: number) => {
+    setActivityPage(page)
+    try {
+      await reload(userPage, taskPage, page)
+    } catch (err) {
+      message.error(messageOf(err))
+    }
+  }
+
+  const changeActivityAction = async (action: string | undefined) => {
+    setActivityAction(action)
+    setActivityPage(1)
+    try {
+      await reload(userPage, taskPage, 1, action)
     } catch (err) {
       message.error(messageOf(err))
     }
@@ -117,6 +142,20 @@ export function AdminPage() {
           pageSize={PAGE_SIZE}
           onPageChange={changeTaskPage}
           onDelete={(task) => run(() => apiService.deleteAdminTask(task.id), "Task deleted")}
+        />
+      )}
+
+      <Typography.Title level={4} style={{ marginTop: 32 }}>
+        Activity
+      </Typography.Title>
+      {activity && (
+        <AdminActivityTable
+          activity={activity}
+          page={activityPage}
+          pageSize={PAGE_SIZE}
+          action={activityAction}
+          onPageChange={changeActivityPage}
+          onActionChange={changeActivityAction}
         />
       )}
 

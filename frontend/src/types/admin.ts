@@ -13,6 +13,48 @@ export type AdminUser = User & {
 
 export type AdminTask = Task & { owner_id: string; group_id: string | null }
 
+// Mirrors ActivityAction on the backend.
+export const ACTIVITY_ACTIONS = [
+  "signup",
+  "login",
+  "login_failed",
+  "login_locked",
+  "login_blocked",
+  "logout",
+  "password_changed",
+  "password_change_failed",
+  "profile_updated",
+  "task_created",
+  "task_updated",
+  "task_deleted",
+  "group_created",
+  "group_renamed",
+  "group_deleted",
+  "member_added",
+  "member_removed",
+  "member_left",
+  "group_task_created",
+  "group_task_updated",
+  "group_task_deleted",
+  "role_changed",
+  "user_banned",
+  "user_unbanned",
+  "admin_task_deleted",
+] as const
+
+export type AdminActivity = {
+  id: string
+  user_id: string | null
+  email: string | null
+  action: string
+  entity_type: string | null
+  entity_id: string | null
+  detail: string | null
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+}
+
 export type AdminStats = {
   users: { total: number; admins: number; banned: number; new_last_7_days: number }
   tasks: { total: number; completed: number; created_last_7_days: number }

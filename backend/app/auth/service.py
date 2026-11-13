@@ -83,12 +83,15 @@ class AuthService:
         self.tokens.revoke(stored)
         return self._issue_tokens(user)
 
-    def logout(self, refresh_token: str | None) -> None:
+    def logout(self, refresh_token: str | None) -> AppUser | None:
         if not refresh_token:
-            return
+            return None
         stored = self.tokens.get_by_hash(hash_refresh_token(refresh_token))
-        if stored is not None and stored.revoked_at is None:
+        if stored is None:
+            return None
+        if stored.revoked_at is None:
             self.tokens.revoke(stored)
+        return self.users.get(stored.user_id)
 
     def _count_failed_login(self, user: AppUser) -> None:
         count = user.failed_login_count + 1
