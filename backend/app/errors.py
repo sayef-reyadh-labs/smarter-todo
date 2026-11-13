@@ -23,5 +23,13 @@ class NotFoundError(AppError):
     status_code = 404
 
 
+class UnprocessableError(AppError):
+    status_code = 422
+
+
+class TooManyRequestsError(AppError):
+    status_code = 429
+
+
 class ConflictError(AppError):
     status_code = 409

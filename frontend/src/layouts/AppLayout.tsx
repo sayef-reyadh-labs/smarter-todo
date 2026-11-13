@@ -18,6 +18,7 @@ export function AppLayout() {
   const items = user
     ? [
         { key: "/", label: <Link to="/">Home</Link> },
+        { key: "/groups", label: <Link to="/groups">Groups</Link> },
         { key: "/profile", label: <Link to="/profile">Profile</Link> },
         ...(user.role === "admin" ? [{ key: "/admin", label: <Link to="/admin">Admin</Link> }] : []),
         { key: "/about", label: <Link to="/about">About</Link> },
@@ -37,7 +38,7 @@ export function AppLayout() {
         <Menu
           theme="dark"
           mode="horizontal"
-          selectedKeys={[pathname.startsWith("/tasks") ? "/" : pathname]}
+          selectedKeys={[pathname.startsWith("/tasks") ? "/" : pathname.startsWith("/groups") ? "/groups" : pathname]}
           style={{ flex: 1, minWidth: 0 }}
           items={items}
         />

@@ -7,6 +7,8 @@ import { useTheme } from "./context/ThemeContext"
 import { AppLayout } from "./layouts/AppLayout"
 import { AboutPage } from "./pages/AboutPage"
 import { AdminPage } from "./pages/AdminPage"
+import { GroupDetailPage } from "./pages/GroupDetailPage"
+import { GroupsPage } from "./pages/GroupsPage"
 import { HomePage } from "./pages/HomePage"
 import { LoginPage } from "./pages/LoginPage"
 import { ProfilePage } from "./pages/ProfilePage"
@@ -29,6 +31,8 @@ function App() {
                 <Route index element={<HomePage />} />
                 <Route path="tasks/:taskId" element={<TaskDetailsPage />} />
                 <Route path="profile" element={<ProfilePage />} />
+                <Route path="groups" element={<GroupsPage />} />
+                <Route path="groups/:groupId" element={<GroupDetailPage />} />
                 <Route element={<AdminRoute />}>
                   <Route path="admin" element={<AdminPage />} />
                 </Route>

@@ -1,6 +1,7 @@
 // Every backend call lives here; pages never call fetch directly. Also keeps the access token and refreshes it.
 import type { LoginInput, PasswordChangeInput, SignupInput, TokenResponse, User } from "../types/auth"
 import type { AdminStats, AdminTask, AdminUser, Page } from "../types/admin"
+import type { Group, GroupTask, GroupTaskInput, GroupTaskPatch, Member } from "../types/group"
 import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
 
 export const PAGE_SIZE = 20
@@ -9,6 +10,7 @@ const BASE = "/api/v1/tasks"
 const AUTH = "/api/v1/auth"
 const ME = "/api/v1/users/me"
 const ADMIN = "/api/v1/admin"
+const GROUPS = "/api/v1/groups"
 
 // The access token lives in memory only (not localStorage), so scripts on the page cannot steal it.
 let accessToken: string | null = null
@@ -133,4 +135,32 @@ export const apiService = {
   getAdminTasks: (offset = 0, limit = 10) => request<Page<AdminTask>>(`${ADMIN}/tasks?offset=${offset}&limit=${limit}`),
 
   deleteAdminTask: (id: string) => request<void>(`${ADMIN}/tasks/${id}`, { method: "DELETE" }),
+
+  getGroups: () => request<Group[]>(GROUPS),
+
+  getGroup: (id: string) => request<Group>(`${GROUPS}/${id}`),
+
+  createGroup: (name: string) => post<Group>(GROUPS, { name }),
+
+  renameGroup: (id: string, name: string) =>
+    request<Group>(`${GROUPS}/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+
+  deleteGroup: (id: string) => request<void>(`${GROUPS}/${id}`, { method: "DELETE" }),
+
+  getMembers: (id: string) => request<Member[]>(`${GROUPS}/${id}/members`),
+
+  addMember: (id: string, email: string) => post<Member>(`${GROUPS}/${id}/members`, { email }),
+
+  removeMember: (id: string, userId: string) => request<void>(`${GROUPS}/${id}/members/${userId}`, { method: "DELETE" }),
+
+  getGroupTasks: (id: string, offset = 0, limit = 100) =>
+    request<Page<GroupTask>>(`${GROUPS}/${id}/tasks?offset=${offset}&limit=${limit}`),
+
+  createGroupTask: (id: string, data: GroupTaskInput) => post<GroupTask>(`${GROUPS}/${id}/tasks`, data),
+
+  updateGroupTask: (id: string, taskId: string, patch: GroupTaskPatch) =>
+    request<GroupTask>(`${GROUPS}/${id}/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  deleteGroupTask: (id: string, taskId: string) =>
+    request<void>(`${GROUPS}/${id}/tasks/${taskId}`, { method: "DELETE" }),
 }

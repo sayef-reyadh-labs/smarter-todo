@@ -43,9 +43,10 @@ class AdminUserPage(SQLModel):
     limit: int
 
 
-# A task as an admin sees it: any owner, so the owner is shown.
+# A task as an admin sees it: any owner and any group, so both are shown.
 class AdminTaskRead(TaskRead):
     owner_id: uuid.UUID
+    group_id: uuid.UUID | None = None
 
 
 class AdminTaskPage(SQLModel):

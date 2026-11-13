@@ -8,6 +8,7 @@ from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
 from app.config import BACKEND_DIR
 from app.errors import AppError
+from app.groups.router import router as groups_router
 from app.tasks.router import router as tasks_router
 from app.users.router import router as users_router
 
@@ -24,9 +25,10 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(admin_router)
 app.include_router(tasks_router)
+app.include_router(groups_router)
 
 
-# Services raise AppError subclasses (400, 401, 409); the status code comes from the class.
+# Services raise AppError subclasses (400, 401, 403, 404, 409, 422, 429); the status code comes from the class.
 @app.exception_handler(AppError)
 async def app_error(request: Request, exc: AppError) -> JSONResponse:
     headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None

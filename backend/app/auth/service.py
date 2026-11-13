@@ -6,7 +6,7 @@ from app.auth.repository import RefreshTokenRepository, UserRepository
 from app.auth.schemas import LoginRequest, SignupRequest
 from app.clock import utc_now
 from app.config import settings
-from app.errors import ConflictError, ForbiddenError, UnauthorizedError
+from app.errors import ConflictError, ForbiddenError, TooManyRequestsError, UnauthorizedError
 from app.security import (
     create_access_token,
     hash_password,
@@ -15,6 +15,11 @@ from app.security import (
     verify_against_dummy,
     verify_password,
 )
+
+
+# After this many wrong passwords in a row an account is locked for LOCK_MINUTES.
+MAX_FAILED_LOGINS = 5
+LOCK_MINUTES = 15
 
 
 # The database returns naive datetimes; they are stored as UTC.
@@ -39,10 +44,16 @@ class AuthService:
         if user is None:
             verify_against_dummy(data.password)
             raise UnauthorizedError("Invalid email or password")
+        # Stored in the database, not in memory, because serverless functions do not share memory.
+        if user.locked_until is not None and _as_utc(user.locked_until) > utc_now():
+            raise TooManyRequestsError("Too many failed logins. Try again in 15 minutes.")
         if not verify_password(data.password, user.password_hash):
+            self._count_failed_login(user)
             raise UnauthorizedError("Invalid email or password")
         if user.is_banned:
             raise ForbiddenError("Account banned")
+        if user.failed_login_count or user.locked_until is not None:
+            self.users.update(user, {"failed_login_count": 0, "locked_until": None})
         access_token, refresh_token = self._issue_tokens(user)
         return user, access_token, refresh_token
 
@@ -72,6 +83,13 @@ class AuthService:
         stored = self.tokens.get_by_hash(hash_refresh_token(refresh_token))
         if stored is not None and stored.revoked_at is None:
             self.tokens.revoke(stored)
+
+    def _count_failed_login(self, user: AppUser) -> None:
+        count = user.failed_login_count + 1
+        if count >= MAX_FAILED_LOGINS:
+            self.users.update(user, {"failed_login_count": 0, "locked_until": utc_now() + timedelta(minutes=LOCK_MINUTES)})
+        else:
+            self.users.update(user, {"failed_login_count": count})
 
     def _issue_tokens(self, user: AppUser) -> tuple[str, str]:
         refresh_token = new_refresh_token()

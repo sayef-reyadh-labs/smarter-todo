@@ -6,6 +6,7 @@ from sqlmodel import Field, SQLModel
 
 from app.auth import models as _auth_models  # noqa: F401  (registers the app_user table that owner_id points to)
 from app.clock import utc_now
+from app.groups import models as _group_models  # noqa: F401  (registers the task_group table that group_id points to)
 
 
 # table=True maps this class to the `task` table.
@@ -17,5 +18,7 @@ class Task(SQLModel, table=True):
     due_date: date | None = None
     is_completed: bool = False
     owner_id: uuid.UUID = Field(foreign_key="app_user.id", index=True)  # the user who created the task
+    group_id: uuid.UUID | None = Field(default=None, foreign_key="task_group.id", index=True)  # None = a personal task
+    assignee_id: uuid.UUID | None = Field(default=None, foreign_key="app_user.id")  # group tasks only
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
