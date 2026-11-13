@@ -2,6 +2,8 @@
 import type { User } from "./auth"
 import type { Task } from "./task"
 
+export type { Page } from "./page"
+
 export type AdminUser = User & {
   is_banned: boolean
   banned_at: string | null
@@ -9,14 +11,7 @@ export type AdminUser = User & {
   status: "active" | "banned"
 }
 
-export type AdminTask = Task & { owner_id: string }
-
-export type Page<T> = {
-  items: T[]
-  total: number
-  offset: number
-  limit: number
-}
+export type AdminTask = Task & { owner_id: string; group_id: string | null }
 
 export type AdminStats = {
   users: { total: number; admins: number; banned: number; new_last_7_days: number }
