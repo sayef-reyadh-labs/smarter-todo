@@ -115,6 +115,7 @@ backend/
     users/             # /api/v1/users/me (profile, change name, change password): router, schemas, service, dependencies
     admin/             # /api/v1/admin/* (require_permission(ADMIN_*)): router, schemas, service, repository (queries across all users and tasks), dependencies
     rbac/              # roles, permissions, policy engine, permission matrix (policies.py) and require_permission; see section 10.3
+    activity/          # activity log: models (ActivityLog), actions (ActivityAction enum), repository, recorder (adds IP and user agent), dependencies (ActivityDep, UserActivityDep), schemas
     groups/            # /api/v1/groups/* (members and group tasks): router, schemas, models (TaskGroup, GroupMember), service, repository, dependencies (get_membership, require_group_permission)
   alembic/             # migration scripts
   alembic.ini          # (Beta)
@@ -269,7 +270,21 @@ erDiagram
         uuid group_id FK
         uuid assignee_id FK
     }
+    ACTIVITY_LOG {
+        uuid id PK
+        uuid user_id FK
+        string email
+        string action
+        string entity_type
+        uuid entity_id
+        string detail
+        string ip_address
+        string user_agent
+        datetime created_at
+    }
 ```
+
+**Activity log (`activity_log`):** one row per thing a user did (FR-42). `user_id` is nullable with `ON DELETE SET NULL` and `email` is a snapshot, so history stays readable if a user is deleted, and a failed login for an unknown email still has a row. `action` is the `ActivityAction` enum value (`login`, `login_failed`, `task_created`, ...). Indexes: `user_id`, `action`, `created_at`. Never store passwords, tokens or hashes in any column. Rows are kept until someone deletes them by hand; add a retention job if the table grows.
 
 **Who can see a task:**
 - Personal task (`group_id` is null): only `owner_id` (and admins).
@@ -375,6 +390,7 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 | `GET` | `/api/v1/admin/stats` | Admin | — | `200` `AdminStats` | `403` | FR-35 |
 | `POST` | `/api/v1/admin/users/{user_id}/ban` | Admin | `BanRequest` | `200` `AdminUserRead` | `400` (self / other admin), `403`, `404` | FR-36 |
 | `POST` | `/api/v1/admin/users/{user_id}/unban` | Admin | — | `200` `AdminUserRead` | `403`, `404` | FR-38 |
+| `GET` | `/api/v1/admin/activity?offset&limit&user_id&action` | Admin (`ADMIN_ACTIVITY_VIEW`) | — | `200` `ActivityPage` | `403`, `422` (unknown action) | FR-42, FR-43 |
 
 The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like the task list. `AdminUserRead` is `UserRead` plus `is_banned`, `banned_at`, `ban_reason` and a computed `status` (`active` / `banned`), so the dashboard can show who is banned (FR-39). `AdminTaskRead` is `TaskRead` plus `owner_id`.
 
@@ -652,6 +668,7 @@ stats = AdminStats(
 - Revision `0002_auth` (#4): create `app_user` (`id`, `email`, `name`, `password_hash`, `role`, `created_at`, `updated_at`) and `refresh_token`; delete the existing MVP demo tasks (they have no owner); add `task.owner_id` (not null, foreign key to `app_user`, indexed).
 - Revision `0003_ban` (#5): `is_banned`, `banned_at` and `ban_reason` on `app_user`.
 - Revisions `0004_groups` and `0005_lockout` (#6): `task_group`, `group_member`, `task.group_id` and `task.assignee_id`; then `failed_login_count` and `locked_until` on `app_user`.
+- Revision `0006_activity_log` (#32): the `activity_log` table and its indexes.
 - Run migrations from a developer machine: `MIGRATION_DATABASE_URL=... alembic upgrade head` (Supabase session pooler, port `5432`), then merge the code. `MIGRATION_DATABASE_URL` wins over `DATABASE_URL`, so never leave it set in a shell where you run local tests.
 - Locally, `alembic upgrade head` (with `DATABASE_URL` unset) builds `backend/smarter_todo.db`; run it again after pulling a change that adds a revision.
 - Promote the first admin in the Supabase table editor: set `role = 'admin'` on your `app_user` row.

@@ -9,6 +9,7 @@ class Permission(str, Enum):
     ADMIN_USERS_MANAGE = "admin:users:manage"  # change role, ban, unban
     ADMIN_TASKS_VIEW = "admin:tasks:view"
     ADMIN_TASKS_DELETE = "admin:tasks:delete"
+    ADMIN_ACTIVITY_VIEW = "admin:activity:view"
 
     # Group level (checked against group_member.role)
     GROUP_VIEW = "group:view"

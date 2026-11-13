@@ -2,6 +2,8 @@
 import uuid
 from datetime import timedelta
 
+from app.activity.repository import ActivityRepository
+from app.activity.schemas import ActivityPage
 from app.admin.repository import AdminRepository
 from app.admin.schemas import (
     AdminStats,
@@ -23,9 +25,18 @@ from app.tasks.models import Task
 
 
 class AdminService:
-    def __init__(self, repo: AdminRepository, tokens: RefreshTokenRepository) -> None:
+    def __init__(self, repo: AdminRepository, tokens: RefreshTokenRepository, activity: ActivityRepository) -> None:
         self.repo = repo
         self.tokens = tokens
+        self.activity = activity
+
+    def list_activity(self, offset: int, limit: int, user_id: uuid.UUID | None, action: str | None) -> ActivityPage:
+        return ActivityPage(
+            items=self.activity.list(offset, limit, user_id, action),
+            total=self.activity.count(user_id, action),
+            offset=offset,
+            limit=limit,
+        )
 
     def list_users(self, offset: int, limit: int) -> AdminUserPage:
         return AdminUserPage(

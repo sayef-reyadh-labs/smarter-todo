@@ -5,6 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
+from app.activity.actions import ActivityAction
+from app.activity.dependencies import UserActivityDep
 from app.auth.dependencies import CurrentUser
 from app.groups.dependencies import GroupServiceDep, GroupTaskServiceDep, MemberDep, require_group_permission
 from app.groups.models import GroupMember
@@ -37,8 +39,10 @@ CanAddMember = Annotated[GroupMember, needs(Permission.GROUP_MEMBERS_ADD)]
 
 # Create a group; the caller becomes its owner.
 @router.post("", response_model=GroupRead, status_code=HTTPStatus.CREATED)
-def create_group(data: GroupCreate, user: CurrentUser, service: GroupServiceDep) -> GroupRead:
-    return service.create_group(user, data)
+def create_group(data: GroupCreate, user: CurrentUser, service: GroupServiceDep, activity: UserActivityDep) -> GroupRead:
+    group = service.create_group(user, data)
+    activity.log(ActivityAction.GROUP_CREATED, entity_type="group", entity_id=group.id, detail=group.name)
+    return group
 
 
 # The groups the caller belongs to.
@@ -53,14 +57,18 @@ def get_group(member: MemberDep, service: GroupServiceDep) -> GroupRead:
 
 
 @router.patch("/{group_id}", response_model=GroupRead)
-def rename_group(member: CanRename, data: GroupUpdate, service: GroupServiceDep) -> GroupRead:
-    return service.rename_group(member, data)
+def rename_group(member: CanRename, data: GroupUpdate, service: GroupServiceDep, activity: UserActivityDep) -> GroupRead:
+    group = service.rename_group(member, data)
+    activity.log(ActivityAction.GROUP_RENAMED, entity_type="group", entity_id=group.id, detail=group.name)
+    return group
 
 
 # Deleting a group also deletes its tasks and memberships.
 @router.delete("/{group_id}", status_code=HTTPStatus.NO_CONTENT)
-def delete_group(member: CanDelete, service: GroupServiceDep) -> None:
+def delete_group(member: CanDelete, service: GroupServiceDep, activity: UserActivityDep) -> None:
+    group_id, name = member.group_id, service.get_group(member).name
     service.delete_group(member)
+    activity.log(ActivityAction.GROUP_DELETED, entity_type="group", entity_id=group_id, detail=name)
 
 
 @router.get("/{group_id}/members", response_model=list[MemberRead], dependencies=[needs(Permission.GROUP_MEMBERS_VIEW)])
@@ -70,14 +78,19 @@ def list_members(member: MemberDep, service: GroupServiceDep) -> list[MemberRead
 
 # Add a member by email: 404 for an unknown email, 409 if they are already in the group.
 @router.post("/{group_id}/members", response_model=MemberRead, status_code=HTTPStatus.CREATED)
-def add_member(member: CanAddMember, data: MemberAdd, service: GroupServiceDep) -> MemberRead:
-    return service.add_member(member.group_id, data)
+def add_member(member: CanAddMember, data: MemberAdd, service: GroupServiceDep, activity: UserActivityDep) -> MemberRead:
+    added = service.add_member(member.group_id, data)
+    activity.log(ActivityAction.MEMBER_ADDED, entity_type="user", entity_id=added.user_id, detail=added.email)
+    return added
 
 
 # The owner removes a member, or a member removes themself (leaves); the owner cannot leave (400).
 @router.delete("/{group_id}/members/{user_id}", status_code=HTTPStatus.NO_CONTENT)
-def remove_member(member: MemberDep, user: CurrentUser, user_id: uuid.UUID, service: GroupServiceDep) -> None:
+def remove_member(member: MemberDep, user: CurrentUser, user_id: uuid.UUID, service: GroupServiceDep, activity: UserActivityDep) -> None:
+    group_name = service.get_group(member).name
     service.remove_member(member, user, user_id)
+    action = ActivityAction.MEMBER_LEFT if user_id == user.id else ActivityAction.MEMBER_REMOVED
+    activity.log(action, entity_type="user", entity_id=user_id, detail=f"group {group_name}")
 
 
 @router.get("/{group_id}/tasks", response_model=GroupTaskPage, dependencies=[needs(Permission.GROUP_TASKS_VIEW)])
@@ -91,8 +104,10 @@ def list_group_tasks(
 
 # 422 when assignee_id is not a member of the group.
 @router.post("/{group_id}/tasks", response_model=GroupTaskRead, status_code=HTTPStatus.CREATED, dependencies=[needs(Permission.GROUP_TASKS_CREATE)])
-def create_group_task(data: GroupTaskCreate, service: GroupTaskServiceDep) -> Task:
-    return service.create_task(data)
+def create_group_task(data: GroupTaskCreate, service: GroupTaskServiceDep, activity: UserActivityDep) -> Task:
+    task = service.create_task(data)
+    activity.log(ActivityAction.GROUP_TASK_CREATED, entity_type="task", entity_id=task.id, detail=task.title)
+    return task
 
 
 @router.get("/{group_id}/tasks/{task_id}", response_model=GroupTaskRead, dependencies=[needs(Permission.GROUP_TASKS_VIEW)])
@@ -101,11 +116,16 @@ def get_group_task(task_id: uuid.UUID, service: GroupTaskServiceDep) -> Task:
 
 
 @router.patch("/{group_id}/tasks/{task_id}", response_model=GroupTaskRead, dependencies=[needs(Permission.GROUP_TASKS_UPDATE)])
-def update_group_task(task_id: uuid.UUID, data: GroupTaskUpdate, service: GroupTaskServiceDep) -> Task:
-    return service.update_task(service.get_task(task_id), data)
+def update_group_task(task_id: uuid.UUID, data: GroupTaskUpdate, service: GroupTaskServiceDep, activity: UserActivityDep) -> Task:
+    task = service.update_task(service.get_task(task_id), data)
+    activity.log(ActivityAction.GROUP_TASK_UPDATED, entity_type="task", entity_id=task.id, detail=task.title)
+    return task
 
 
 # Only the task's creator or the group owner can delete it.
 @router.delete("/{group_id}/tasks/{task_id}", status_code=HTTPStatus.NO_CONTENT)
-def delete_group_task(task_id: uuid.UUID, service: GroupTaskServiceDep) -> None:
-    service.delete_task(service.get_task(task_id))
+def delete_group_task(task_id: uuid.UUID, service: GroupTaskServiceDep, activity: UserActivityDep) -> None:
+    task = service.get_task(task_id)
+    title = task.title
+    service.delete_task(task)
+    activity.log(ActivityAction.GROUP_TASK_DELETED, entity_type="task", entity_id=task_id, detail=title)

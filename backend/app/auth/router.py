@@ -4,10 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Response
 
+from app.activity.actions import ActivityAction
+from app.activity.dependencies import ActivityDep
 from app.auth.dependencies import AuthServiceDep
 from app.auth.models import AppUser
 from app.auth.schemas import LoginRequest, SignupRequest, TokenResponse, UserRead
 from app.config import settings
+from app.errors import AppError, ForbiddenError, TooManyRequestsError
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -34,14 +37,29 @@ def _token_response(access_token: str) -> TokenResponse:
 
 # Create an account; it starts with the role "user". Logging in is a separate call.
 @router.post("/signup", response_model=UserRead, status_code=HTTPStatus.CREATED)
-def signup(data: SignupRequest, service: AuthServiceDep) -> AppUser:
-    return service.signup(data)
+def signup(data: SignupRequest, service: AuthServiceDep, activity: ActivityDep) -> AppUser:
+    user = service.signup(data)
+    activity.log(ActivityAction.SIGNUP, user=user)
+    return user
+
+
+def _failed_login_action(exc: AppError) -> ActivityAction:
+    if isinstance(exc, TooManyRequestsError):
+        return ActivityAction.LOGIN_LOCKED
+    if isinstance(exc, ForbiddenError):
+        return ActivityAction.LOGIN_BLOCKED
+    return ActivityAction.LOGIN_FAILED
 
 
 # Check the email and password; answer with an access token and set the refresh token cookie.
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, response: Response, service: AuthServiceDep) -> TokenResponse:
-    _, access_token, refresh_token = service.login(data)
+def login(data: LoginRequest, response: Response, service: AuthServiceDep, activity: ActivityDep) -> TokenResponse:
+    try:
+        user, access_token, refresh_token = service.login(data)
+    except AppError as exc:
+        activity.log(_failed_login_action(exc), email=data.email, detail=exc.message)
+        raise
+    activity.log(ActivityAction.LOGIN, user=user)
     _set_refresh_cookie(response, refresh_token)
     return _token_response(access_token)
 
@@ -63,7 +81,10 @@ def refresh(
 def logout(
     response: Response,
     service: AuthServiceDep,
+    activity: ActivityDep,
     refresh_token: Annotated[str | None, Cookie()] = None,
 ) -> None:
-    service.logout(refresh_token)
+    user = service.logout(refresh_token)
+    if user is not None:
+        activity.log(ActivityAction.LOGOUT, user=user)
     response.delete_cookie(COOKIE_NAME, path=COOKIE_PATH, httponly=True, secure=True, samesite="strict")
