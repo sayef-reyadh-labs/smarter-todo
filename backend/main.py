@@ -4,6 +4,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
 from app.config import BACKEND_DIR
 from app.errors import AppError
@@ -21,6 +22,7 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(admin_router)
 app.include_router(tasks_router)
 
 
