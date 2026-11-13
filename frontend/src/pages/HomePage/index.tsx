@@ -1,7 +1,8 @@
 // Task list page: loads tasks from the API (filtered on the server), owns the list state and passes it to the components below.
 import { TagsOutlined } from "@ant-design/icons"
-import { Alert, App as AntApp, Button, Flex, Segmented, Select } from "antd"
-import { useEffect, useState } from "react"
+import { Alert, App as AntApp, Button, Flex, Segmented, Select, type InputRef } from "antd"
+import dayjs from "dayjs"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import { CategoryManager } from "../../components/CategoryManager"
 import { PageHeader } from "../../components/PageHeader"
@@ -9,8 +10,10 @@ import { SearchInput } from "../../components/SearchInput"
 import { TaskForm } from "../../components/TaskForm"
 import { TaskList } from "../../components/TaskList"
 import { TaskStats } from "../../components/TaskStats"
+import { useAuth } from "../../context/AuthContext"
 import { PAGE_SIZE, apiService } from "../../services/api"
 import type { Category, PersonalTaskInput, Task, TaskListFilters, TaskPatch } from "../../types/task"
+import { greeting } from "../../utils/dates"
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong")
 
@@ -29,7 +32,8 @@ const toApiFilters = (view: View): TaskListFilters => ({
 export function HomePage() {
   const navigate = useNavigate()
   const { message } = AntApp.useApp()
-
+  const { user } = useAuth()
+  const searchRef = useRef<InputRef>(null)
   // useState stores a value; calling its setter re-renders the page with the new value.
   const [tasks, setTasks] = useState<Task[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -84,6 +88,19 @@ export function HomePage() {
     }
   }, [])
 
+  // Pressing / jumps to the search box, like on GitHub, unless the user is already typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const typing = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
+      if (e.key !== "/" || typing || e.metaKey || e.ctrlKey || e.altKey) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
   // Runs a change, refreshes the list and reports the result; returns false on failure.
   const run = async (action: () => Promise<unknown>, success: string): Promise<boolean> => {
     try {
@@ -131,8 +148,8 @@ export function HomePage() {
   return (
     <>
       <PageHeader
-        title="My tasks"
-        subtitle="Keep your tasks simple and focused."
+        title={user ? `${greeting()}, ${user.name.split(" ")[0]}` : "My tasks"}
+        subtitle={`${dayjs().format("dddd, D MMMM")} · keep your tasks simple and focused.`}
         extra={
           <Button icon={<TagsOutlined />} onClick={() => setManaging(true)}>
             Categories
@@ -144,8 +161,10 @@ export function HomePage() {
 
       <TaskForm categories={categories} onAdd={addTask} />
 
+      {tasks.length > 0 && !filtered && <TaskStats tasks={tasks} onClearCompleted={clearCompleted} />}
+
       <Flex wrap gap={8} style={{ marginBottom: 16 }}>
-        <SearchInput placeholder="Search tasks" onSearch={(q) => setView((prev) => (prev.q === q ? prev : { ...prev, q }))} width={220} />
+        <SearchInput inputRef={searchRef} placeholder="Search tasks (press /)" onSearch={(q) => setView((prev) => (prev.q === q ? prev : { ...prev, q }))} width={220} />
         <Select
           value={view.category}
           options={categoryOptions}
@@ -166,7 +185,6 @@ export function HomePage() {
         />
       </Flex>
 
-      {tasks.length > 0 && !filtered && <TaskStats tasks={tasks} onClearCompleted={clearCompleted} />}
       {filtered && !loading && (
         <Alert
           type="info"

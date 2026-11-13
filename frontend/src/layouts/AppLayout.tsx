@@ -48,6 +48,7 @@ export function AppLayout() {
         Skip to content
       </a>
       <Layout.Header
+        className="app-header"
         style={{
           position: "sticky",
           top: 0,
@@ -98,7 +99,9 @@ export function AppLayout() {
         )}
       </Layout.Header>
       <Layout.Content id="main" style={{ maxWidth: widthFor(pathname), width: "100%", margin: "0 auto", padding: "32px 16px 48px" }}>
-        <Outlet />
+        <div key={pathname} className="page-fade">
+          <Outlet />
+        </div>
       </Layout.Content>
       <Layout.Footer style={{ textAlign: "center", color: token.colorTextSecondary }}>Smarter Todo · built by SayefReyadh</Layout.Footer>
     </Layout>

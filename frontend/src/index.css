@@ -4,9 +4,70 @@ body {
 
 .brand {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.brand .anticon {
+  font-size: 20px;
+  vertical-align: -3px;
+}
+
+.app-header {
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+/* Pages ease in instead of popping in. */
+.page-fade {
+  animation: page-fade 0.25s ease-out;
+}
+
+@keyframes page-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.task-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.task-card:hover {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
+.task-card-done {
+  opacity: 0.7;
+}
+
+.stat-tile .ant-statistic-title {
+  margin-bottom: 2px;
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  font-size: 24px;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+.auth-card {
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
 }
 
 /* Visible keyboard focus on every interactive element. */
@@ -46,5 +107,9 @@ body {
   * {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .task-card:hover {
+    transform: none;
   }
 }
