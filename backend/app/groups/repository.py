@@ -24,14 +24,14 @@ class GroupRepository:
         self.session.refresh(group)
         return group
 
-    def list_for_user(self, user_id: uuid.UUID) -> list[tuple[TaskGroup, str]]:
+    def list_for_user(self, user_id: uuid.UUID) -> list[tuple[TaskGroup, GroupMember]]:
         statement = (
-            select(TaskGroup, GroupMember.role)
+            select(TaskGroup, GroupMember)
             .join(GroupMember, GroupMember.group_id == TaskGroup.id)
             .where(GroupMember.user_id == user_id)
             .order_by(TaskGroup.created_at.desc(), TaskGroup.id.desc())
         )
-        return [(group, role) for group, role in self.session.exec(statement).all()]
+        return [(group, member) for group, member in self.session.exec(statement).all()]
 
     def get_group(self, group_id: uuid.UUID) -> TaskGroup | None:
         return self.session.get(TaskGroup, group_id)
@@ -61,6 +61,13 @@ class GroupRepository:
         return [(member, user) for member, user in self.session.exec(statement).all()]
 
     def add_member(self, member: GroupMember) -> GroupMember:
+        self.session.add(member)
+        self.session.commit()
+        self.session.refresh(member)
+        return member
+
+    def set_grants(self, member: GroupMember, granted_permissions: str) -> GroupMember:
+        member.granted_permissions = granted_permissions
         self.session.add(member)
         self.session.commit()
         self.session.refresh(member)

@@ -8,10 +8,11 @@ from app.auth.dependencies import CurrentUser
 from app.auth.repository import UserRepository
 from app.database import SessionDep
 from app.errors import NotFoundError
+from app.groups.grants import member_subject
 from app.groups.models import GroupMember
 from app.groups.repository import GroupRepository
 from app.groups.service import GroupService, GroupTaskService
-from app.rbac import GROUP_POLICY, Permission, Subject
+from app.rbac import GROUP_POLICY, Permission
 
 
 # A group the caller is not in answers 404, so its existence is not revealed.
@@ -28,7 +29,7 @@ MemberDep = Annotated[GroupMember, Depends(get_membership)]
 # Use as Depends(require_group_permission(Permission.X)); runs after the membership check.
 def require_group_permission(permission: Permission) -> Callable[[MemberDep], GroupMember]:
     def check(member: MemberDep) -> GroupMember:
-        GROUP_POLICY.authorize(Subject(member.user_id, member.role), permission, "Group owner only")
+        GROUP_POLICY.authorize(member_subject(member), permission, "You do not have permission to do that in this group")
         return member
 
     return check

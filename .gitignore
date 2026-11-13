@@ -6,6 +6,7 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
+*.tsbuildinfo
 
 # Local database
 smarter_todo.db

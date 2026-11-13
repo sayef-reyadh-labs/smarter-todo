@@ -19,6 +19,13 @@ A task app for students: keep your own to-do list, and share task lists with you
 - Roles: `user` and `admin`; admin dashboard with stats, ban / unban users
 - Security: Argon2 password hashing with a salt and a server-side pepper, login lockout, secure cookies, security headers
 
+**Added after Beta**
+- Categories: group your personal tasks, filter by category (or "No category"), by status (open, done, overdue) and search by text
+- Sessions: the profile page lists every device you are logged in on; log out one device, all other devices, or everywhere
+- Group permissions: the group owner chooses what each member may do (create, edit, assign tasks); only the owner can delete tasks, rename the group and manage members
+- Admin tools: search and filters kept in the URL, user detail drawer, bulk ban / unban and task delete (up to 50 at a time), group delete, CSV export of users, tasks and activity, activity purge
+- Activity log and security monitoring: every important action is recorded; rejected tokens, denied access and refresh-token reuse are logged as security events and summarised in the admin **Security** tab
+
 ## Tech stack
 
 | Part | Choice |
@@ -166,6 +173,15 @@ MIGRATION_DATABASE_URL="<supabase session pooler url>" alembic upgrade head    #
 
 > `MIGRATION_DATABASE_URL` wins over `DATABASE_URL`. Remove it from your shell afterwards, or a later local `alembic` command will change the hosted database.
 
+### Categories, sessions and security events
+
+- **Categories** are private to each user (`/api/v1/categories`). Deleting a category keeps its tasks, which become "No category". Group tasks have no category.
+- **Sessions** live at `/api/v1/auth/sessions` (list, revoke one, revoke others, revoke all). The refresh cookie is only sent to `/api/v1/auth`, so these routes sit there. A logged-out device stays usable until its access token expires (15 minutes) but cannot renew it.
+- **Group permissions** are stored per member in the database, not in the JWT, so the owner's change applies on the next request. The JWT carries only `sub`, `role`, `iat` and `exp`; the server still reads the real role and ban state from the database on every request.
+- **Security events** (`auth_rejected`, `access_denied`, `token_reuse_detected`) record the IP address and user agent. Expired or missing tokens are not logged, at most 30 events per IP per minute are stored, and control characters are stripped from logged text. Admins see them under **Admin → Activity** (hostile actions in red) and **Admin → Security** (failed logins and rejected tokens by IP and account).
+- **Exports** are CSV files (UTF-8 with BOM, cells starting with `=`, `+`, `-` or `@` are escaped) capped at 10,000 rows.
+- **Retention:** activity older than `ACTIVITY_RETENTION_DAYS` is deleted automatically (checked at login, at most once an hour). Admins can also purge older entries by hand.
+
 ### Making someone an admin
 
 Everyone signs up as a `user`. There is no screen to create the first admin; promote an account once in the Supabase **SQL editor** (or the table editor), or in a local SQLite file with any SQLite tool:
@@ -188,6 +204,7 @@ Locally nothing needs to be set: the app uses the SQLite file `backend/smarter_t
 | `PASSWORD_PEPPER` | Auth (production) | Long random string, same generator as `JWT_SECRET`. **Required on Vercel**; mixed into every password before hashing, so a leaked database alone cannot be cracked. Never change it once users exist, or their passwords stop working. Locally a fixed development value is used. |
 | `ACCESS_TOKEN_MINUTES` | Auth | Default `15` |
 | `REFRESH_TOKEN_DAYS` | Auth | Default `7` |
+| `ACTIVITY_RETENTION_DAYS` | Activity log | Default `90`; `0` keeps the log forever |
 | `MIGRATION_DATABASE_URL` | Migrations only | Supabase session pooler URL (port `5432`) used when you run Alembic against the hosted database. Not set on Vercel. |
 
 Never commit secrets or `.env` files. See [TDD, section 8](docs/03-tdd.md#8-configuration) for the Supabase setup.

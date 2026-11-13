@@ -30,3 +30,41 @@ class ActivityPage(SQLModel):
     total: int
     offset: int
     limit: int
+
+
+# Many failed logins from one address: a guessing attack, or one person who forgot a password.
+class SuspiciousIp(SQLModel):
+    ip_address: str
+    failures: int
+    distinct_accounts: int
+    last_seen: datetime
+
+    @field_validator("last_seen")
+    @classmethod
+    def as_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+# Many failed logins against one account.
+class SuspiciousAccount(SQLModel):
+    email: str
+    user_id: uuid.UUID | None = None
+    failures: int
+    distinct_ips: int
+    last_seen: datetime
+
+    @field_validator("last_seen")
+    @classmethod
+    def as_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+class SecurityReport(SQLModel):
+    since: datetime
+    ips: list[SuspiciousIp]
+    accounts: list[SuspiciousAccount]
+
+
+class PurgeResult(SQLModel):
+    deleted: int
+    cutoff: datetime

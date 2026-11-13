@@ -11,6 +11,9 @@ class Permission(str, Enum):
     ADMIN_TASKS_DELETE = "admin:tasks:delete"
     ADMIN_ACTIVITY_VIEW = "admin:activity:view"
     ADMIN_GROUPS_VIEW = "admin:groups:view"
+    ADMIN_GROUPS_DELETE = "admin:groups:delete"
+    ADMIN_ACTIVITY_PURGE = "admin:activity:purge"
+    ADMIN_EXPORT = "admin:export"
 
     # Group level (checked against group_member.role)
     GROUP_VIEW = "group:view"
@@ -21,5 +24,7 @@ class Permission(str, Enum):
     GROUP_MEMBERS_REMOVE = "group:members:remove"
     GROUP_TASKS_VIEW = "group:tasks:view"
     GROUP_TASKS_CREATE = "group:tasks:create"
-    GROUP_TASKS_UPDATE = "group:tasks:update"
+    GROUP_TASKS_UPDATE = "group:tasks:update"  # edit a task and mark it done or open
+    GROUP_TASKS_ASSIGN = "group:tasks:assign"  # change who a task is assigned to
     GROUP_TASKS_DELETE = "group:tasks:delete"
+    GROUP_PERMISSIONS_MANAGE = "group:permissions:manage"  # decide what each member may do

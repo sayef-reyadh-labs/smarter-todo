@@ -57,10 +57,40 @@ class RefreshTokenRepository:
 
     # Used on password change, and when a revoked token is presented again (it was probably stolen).
     def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+        self.revoke_others(user_id, None)
+
+    # One live token per login session: the newest of its rotated tokens.
+    def list_active(self, user_id: uuid.UUID) -> list[RefreshToken]:
+        statement = (
+            select(RefreshToken)
+            .where(RefreshToken.user_id == user_id, col(RefreshToken.revoked_at).is_(None), RefreshToken.expires_at > utc_now())
+            .order_by(RefreshToken.last_used_at.desc())
+        )
+        return list(self.session.exec(statement).all())
+
+    # False once the session was ended (logout, revoked, banned): nothing live is left to protect.
+    def session_is_active(self, session_id: uuid.UUID) -> bool:
+        statement = select(RefreshToken.id).where(
+            RefreshToken.session_id == session_id, col(RefreshToken.revoked_at).is_(None), RefreshToken.expires_at > utc_now()
+        )
+        return self.session.exec(statement).first() is not None
+
+    # Returns how many tokens were revoked (0 when the session does not exist or is already over).
+    def revoke_session(self, user_id: uuid.UUID, session_id: uuid.UUID) -> int:
         statement = (
             update(RefreshToken)
-            .where(RefreshToken.user_id == user_id, col(RefreshToken.revoked_at).is_(None))
+            .where(RefreshToken.user_id == user_id, RefreshToken.session_id == session_id, col(RefreshToken.revoked_at).is_(None))
             .values(revoked_at=utc_now())
         )
-        self.session.exec(statement)
+        result = self.session.exec(statement)
         self.session.commit()
+        return result.rowcount or 0
+
+    # keep_session_id None revokes every session of the user.
+    def revoke_others(self, user_id: uuid.UUID, keep_session_id: uuid.UUID | None) -> int:
+        conditions = [RefreshToken.user_id == user_id, col(RefreshToken.revoked_at).is_(None)]
+        if keep_session_id is not None:
+            conditions.append(RefreshToken.session_id != keep_session_id)
+        result = self.session.exec(update(RefreshToken).where(*conditions).values(revoked_at=utc_now()))
+        self.session.commit()
+        return result.rowcount or 0

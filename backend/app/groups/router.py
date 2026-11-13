@@ -19,6 +19,7 @@ from app.groups.schemas import (
     GroupTaskUpdate,
     GroupUpdate,
     MemberAdd,
+    MemberPermissionsUpdate,
     MemberRead,
 )
 from app.rbac import Permission
@@ -35,6 +36,7 @@ def needs(permission: Permission) -> Depends:
 CanRename = Annotated[GroupMember, needs(Permission.GROUP_RENAME)]
 CanDelete = Annotated[GroupMember, needs(Permission.GROUP_DELETE)]
 CanAddMember = Annotated[GroupMember, needs(Permission.GROUP_MEMBERS_ADD)]
+CanManagePermissions = Annotated[GroupMember, needs(Permission.GROUP_PERMISSIONS_MANAGE)]
 
 
 # Create a group; the caller becomes its owner.
@@ -84,6 +86,18 @@ def add_member(member: CanAddMember, data: MemberAdd, service: GroupServiceDep, 
     return added
 
 
+# The owner decides what a member may do with tasks: send the full list of delegable permissions.
+# Deleting tasks is never delegable. 400 for the owner's own row, 404 for a non-member.
+@router.patch("/{group_id}/members/{user_id}/permissions", response_model=MemberRead)
+def set_member_permissions(
+    member: CanManagePermissions, user_id: uuid.UUID, data: MemberPermissionsUpdate, service: GroupServiceDep, activity: UserActivityDep
+) -> MemberRead:
+    updated = service.set_member_permissions(member.group_id, user_id, list(data.permissions))
+    shown = ", ".join(p.removeprefix("group:tasks:") for p in updated.permissions) or "read only"
+    activity.log(ActivityAction.MEMBER_PERMISSIONS_CHANGED, entity_type="user", entity_id=user_id, detail=f"{updated.email}: {shown}")
+    return updated
+
+
 # The owner removes a member, or a member removes themself (leaves); the owner cannot leave (400).
 @router.delete("/{group_id}/members/{user_id}", status_code=HTTPStatus.NO_CONTENT)
 def remove_member(member: MemberDep, user: CurrentUser, user_id: uuid.UUID, service: GroupServiceDep, activity: UserActivityDep) -> None:
@@ -115,7 +129,7 @@ def get_group_task(task_id: uuid.UUID, service: GroupTaskServiceDep) -> Task:
     return service.get_task(task_id)
 
 
-@router.patch("/{group_id}/tasks/{task_id}", response_model=GroupTaskRead, dependencies=[needs(Permission.GROUP_TASKS_UPDATE)])
+@router.patch("/{group_id}/tasks/{task_id}", response_model=GroupTaskRead)
 def update_group_task(task_id: uuid.UUID, data: GroupTaskUpdate, service: GroupTaskServiceDep, activity: UserActivityDep) -> Task:
     task = service.update_task(service.get_task(task_id), data)
     activity.log(ActivityAction.GROUP_TASK_UPDATED, entity_type="task", entity_id=task.id, detail=task.title)

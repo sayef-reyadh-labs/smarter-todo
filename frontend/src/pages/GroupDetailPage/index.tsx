@@ -110,21 +110,24 @@ export function GroupDetailPage() {
           isOwner={isOwner}
           onAdd={(email) => run(() => apiService.addMember(group.id, email), "Member added")}
           onRemove={(member) => run(() => apiService.removeMember(group.id, member.user_id), `${member.name} removed`)}
+          onPermissions={(member, permissions) =>
+            run(() => apiService.setMemberPermissions(group.id, member.user_id, permissions), `${member.name}'s permissions updated`)
+          }
         />
       </Card>
 
       <Card>
         <GroupTasks
-        tasks={tasks}
-        members={members}
-        currentUserId={user.id}
-        isOwner={isOwner}
-        onAdd={(data) => run(() => apiService.createGroupTask(group.id, data), "Task added")}
-        onEdit={(task, patch) => run(() => apiService.updateGroupTask(group.id, task.id, patch), "Task updated")}
-        onToggle={(task) => run(() => apiService.updateGroupTask(group.id, task.id, { is_completed: !task.is_completed }), "Task updated")}
-        onAssign={(task, assigneeId) => run(() => apiService.updateGroupTask(group.id, task.id, { assignee_id: assigneeId }), "Assignee updated")}
-        onDelete={(task) => run(() => apiService.deleteGroupTask(group.id, task.id), "Task deleted")}
-      />
+          tasks={tasks}
+          members={members}
+          permissions={group.my_permissions}
+          isOwner={isOwner}
+          onAdd={(data) => run(() => apiService.createGroupTask(group.id, data), "Task added")}
+          onEdit={(task, patch) => run(() => apiService.updateGroupTask(group.id, task.id, patch), "Task updated")}
+          onToggle={(task) => run(() => apiService.updateGroupTask(group.id, task.id, { is_completed: !task.is_completed }), "Task updated")}
+          onAssign={(task, assigneeId) => run(() => apiService.updateGroupTask(group.id, task.id, { assignee_id: assigneeId }), "Assignee updated")}
+          onDelete={(task) => run(() => apiService.deleteGroupTask(group.id, task.id), "Task deleted")}
+        />
       </Card>
     </>
   )

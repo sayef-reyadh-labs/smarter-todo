@@ -20,6 +20,11 @@ class TaskCreate(TaskBase):
     pass
 
 
+# A personal task may be put in one of the owner's categories; group tasks have none.
+class PersonalTaskCreate(TaskCreate):
+    category_id: uuid.UUID | None = None
+
+
 class TaskUpdate(SQLModel):
     title: Title | None = None
     description: str | None = Field(default=None, max_length=1000)
@@ -35,9 +40,15 @@ class TaskUpdate(SQLModel):
         return value
 
 
+# category_id may be cleared with null.
+class PersonalTaskUpdate(TaskUpdate):
+    category_id: uuid.UUID | None = None
+
+
 class TaskRead(TaskBase):
     id: uuid.UUID
     is_completed: bool
+    category_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 

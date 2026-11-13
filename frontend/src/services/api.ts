@@ -1,5 +1,5 @@
 // Every backend call lives here; pages never call fetch directly. Also keeps the access token and refreshes it.
-import type { LoginInput, PasswordChangeInput, SignupInput, TokenResponse, User } from "../types/auth"
+import type { LoginInput, PasswordChangeInput, Session, SignupInput, TokenResponse, User } from "../types/auth"
 import type {
   ActivityFilters,
   AdminActivity,
@@ -7,13 +7,17 @@ import type {
   AdminStats,
   AdminTask,
   AdminUser,
+  AdminUserDetail,
+  BulkResult,
   GroupFilters,
   Page,
+  PurgeResult,
+  SecurityReport,
   TaskFilters,
   UserFilters,
 } from "../types/admin"
 import type { Group, GroupTask, GroupTaskInput, GroupTaskPatch, Member } from "../types/group"
-import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
+import type { Category, PersonalTaskInput, Task, TaskListFilters, TaskPage, TaskPatch } from "../types/task"
 import { HttpStatus } from "../utils/httpStatus"
 
 export const PAGE_SIZE = 20
@@ -23,6 +27,7 @@ const AUTH = "/api/v1/auth"
 const ME = "/api/v1/users/me"
 const ADMIN = "/api/v1/admin"
 const GROUPS = "/api/v1/groups"
+const CATEGORIES = "/api/v1/categories"
 
 // The access token lives in memory only (not localStorage), so scripts on the page cannot steal it.
 let accessToken: string | null = null
@@ -70,9 +75,9 @@ const refreshAccessToken = (): Promise<boolean> => {
   return refreshing
 }
 
-const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
+// Sends the call; an expired access token is renewed from the refresh cookie and the call is tried once more.
+const sendWithRefresh = async (url: string, options?: RequestInit): Promise<Response> => {
   let res = await send(url, options)
-  // An expired access token: get a new one from the refresh cookie and try once more.
   if (res.status === HttpStatus.Unauthorized && !url.startsWith(AUTH)) {
     if (await refreshAccessToken()) {
       res = await send(url, options)
@@ -82,19 +87,37 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
     }
   }
   if (!res.ok) throw new Error(await errorMessage(res))
+  return res
+}
+
+const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
+  const res = await sendWithRefresh(url, options)
   return res.status === HttpStatus.NoContent ? (undefined as T) : await res.json()
 }
 
 const post = <T,>(url: string, data?: unknown) =>
   request<T>(url, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) })
 
+const patch = <T,>(url: string, data: unknown) => request<T>(url, { method: "PATCH", body: JSON.stringify(data) })
+
 // "?offset=0&limit=10&q=abc": filters left undefined or empty are left out.
-const query = (params: Record<string, string | number | undefined>) => {
+const query = (params: Record<string, string | number | boolean | undefined>) => {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== "") search.set(key, String(value))
+    if (value !== undefined && value !== "" && value !== false) search.set(key, String(value))
   }
   return `?${search.toString()}`
+}
+
+// Downloads a file the API answers with (the CSV exports) and hands it to the browser.
+const download = async (url: string) => {
+  const res = await sendWithRefresh(url)
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "export.csv"
+  const link = document.createElement("a")
+  link.href = URL.createObjectURL(await res.blob())
+  link.download = name
+  link.click()
+  URL.revokeObjectURL(link.href)
 }
 
 // Central place for every backend call, like smart-todo's apiService.
@@ -127,43 +150,87 @@ export const apiService = {
 
   getMe: () => request<User>(ME),
 
-  updateMe: (name: string) => request<User>(ME, { method: "PATCH", body: JSON.stringify({ name }) }),
+  updateMe: (name: string) => patch<User>(ME, { name }),
 
   changePassword: (data: PasswordChangeInput) => post<void>(`${ME}/password`, data),
 
-  getTasks: (offset = 0, limit = PAGE_SIZE) => request<TaskPage>(`${BASE}?offset=${offset}&limit=${limit}`),
+  getSessions: () => request<Session[]>(`${AUTH}/sessions`),
+
+  revokeSession: (id: string) => request<void>(`${AUTH}/sessions/${id}`, { method: "DELETE" }),
+
+  revokeOtherSessions: () => post<void>(`${AUTH}/sessions/revoke-others`),
+
+  // Ends every session, this one too; the caller then drops the local login.
+  revokeAllSessions: async () => {
+    await post<void>(`${AUTH}/sessions/revoke-all`)
+    accessToken = null
+  },
+
+  getTasks: (offset = 0, limit = PAGE_SIZE, filters: TaskListFilters = {}) =>
+    request<TaskPage>(`${BASE}${query({ offset, limit, ...filters })}`),
 
   getTask: (id: string) => request<Task>(`${BASE}/${id}`),
 
-  createTask: (data: TaskInput) => post<Task>(BASE, data),
+  createTask: (data: PersonalTaskInput) => post<Task>(BASE, data),
 
-  updateTask: (id: string, patch: TaskPatch) =>
-    request<Task>(`${BASE}/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  updateTask: (id: string, changes: TaskPatch) => patch<Task>(`${BASE}/${id}`, changes),
 
   deleteTask: (id: string) => request<void>(`${BASE}/${id}`, { method: "DELETE" }),
+
+  getCategories: () => request<Category[]>(CATEGORIES),
+
+  createCategory: (name: string) => post<Category>(CATEGORIES, { name }),
+
+  renameCategory: (id: string, name: string) => patch<Category>(`${CATEGORIES}/${id}`, { name }),
+
+  deleteCategory: (id: string) => request<void>(`${CATEGORIES}/${id}`, { method: "DELETE" }),
 
   getAdminStats: () => request<AdminStats>(`${ADMIN}/stats`),
 
   getAdminUsers: (offset = 0, limit = 10, filters: UserFilters = {}) =>
     request<Page<AdminUser>>(`${ADMIN}/users${query({ offset, limit, ...filters })}`),
 
-  changeUserRole: (id: string, role: "user" | "admin") =>
-    request<User>(`${ADMIN}/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  getAdminUser: (id: string) => request<AdminUserDetail>(`${ADMIN}/users/${id}`),
+
+  changeUserRole: (id: string, role: "user" | "admin") => patch<User>(`${ADMIN}/users/${id}/role`, { role }),
 
   banUser: (id: string, reason: string) => post<AdminUser>(`${ADMIN}/users/${id}/ban`, { reason: reason || null }),
 
   unbanUser: (id: string) => post<AdminUser>(`${ADMIN}/users/${id}/unban`),
 
+  bulkBanUsers: (ids: string[], reason: string) => post<BulkResult>(`${ADMIN}/users/bulk-ban`, { ids, reason: reason || null }),
+
+  bulkUnbanUsers: (ids: string[]) => post<BulkResult>(`${ADMIN}/users/bulk-unban`, { ids }),
+
+  revokeUserSessions: (id: string) => post<void>(`${ADMIN}/users/${id}/revoke-sessions`),
+
   getAdminTasks: (offset = 0, limit = 10, filters: TaskFilters = {}) =>
     request<Page<AdminTask>>(`${ADMIN}/tasks${query({ offset, limit, ...filters })}`),
+
+  deleteAdminTask: (id: string) => request<void>(`${ADMIN}/tasks/${id}`, { method: "DELETE" }),
+
+  bulkDeleteAdminTasks: (ids: string[]) => post<BulkResult>(`${ADMIN}/tasks/bulk-delete`, { ids }),
 
   getAdminGroups: (offset = 0, limit = 10, filters: GroupFilters = {}) =>
     request<Page<AdminGroup>>(`${ADMIN}/groups${query({ offset, limit, ...filters })}`),
 
-  deleteAdminTask: (id: string) => request<void>(`${ADMIN}/tasks/${id}`, { method: "DELETE" }),
+  getAdminGroup: (id: string) => request<AdminGroup>(`${ADMIN}/groups/${id}`),
+
+  deleteAdminGroup: (id: string) => request<void>(`${ADMIN}/groups/${id}`, { method: "DELETE" }),
 
   getAdminActivity: (offset = 0, limit = 10, filters: ActivityFilters = {}) =>
     request<Page<AdminActivity>>(`${ADMIN}/activity${query({ offset, limit, ...filters })}`),
+
+  purgeAdminActivity: (olderThanDays?: number) =>
+    request<PurgeResult>(`${ADMIN}/activity${query({ older_than_days: olderThanDays })}`, { method: "DELETE" }),
+
+  getSecurityReport: (hours = 24, minFailures = 3) => request<SecurityReport>(`${ADMIN}/security/report${query({ hours, min_failures: minFailures })}`),
+
+  exportAdminUsers: (filters: UserFilters = {}) => download(`${ADMIN}/users/export${query({ ...filters })}`),
+
+  exportAdminTasks: (filters: TaskFilters = {}) => download(`${ADMIN}/tasks/export${query({ ...filters })}`),
+
+  exportAdminActivity: (filters: ActivityFilters = {}) => download(`${ADMIN}/activity/export${query({ ...filters })}`),
 
   getGroups: () => request<Group[]>(GROUPS),
 
@@ -171,14 +238,16 @@ export const apiService = {
 
   createGroup: (name: string) => post<Group>(GROUPS, { name }),
 
-  renameGroup: (id: string, name: string) =>
-    request<Group>(`${GROUPS}/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  renameGroup: (id: string, name: string) => patch<Group>(`${GROUPS}/${id}`, { name }),
 
   deleteGroup: (id: string) => request<void>(`${GROUPS}/${id}`, { method: "DELETE" }),
 
   getMembers: (id: string) => request<Member[]>(`${GROUPS}/${id}/members`),
 
   addMember: (id: string, email: string) => post<Member>(`${GROUPS}/${id}/members`, { email }),
+
+  setMemberPermissions: (id: string, userId: string, permissions: string[]) =>
+    patch<Member>(`${GROUPS}/${id}/members/${userId}/permissions`, { permissions }),
 
   removeMember: (id: string, userId: string) => request<void>(`${GROUPS}/${id}/members/${userId}`, { method: "DELETE" }),
 
@@ -187,9 +256,7 @@ export const apiService = {
 
   createGroupTask: (id: string, data: GroupTaskInput) => post<GroupTask>(`${GROUPS}/${id}/tasks`, data),
 
-  updateGroupTask: (id: string, taskId: string, patch: GroupTaskPatch) =>
-    request<GroupTask>(`${GROUPS}/${id}/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  updateGroupTask: (id: string, taskId: string, changes: GroupTaskPatch) => patch<GroupTask>(`${GROUPS}/${id}/tasks/${taskId}`, changes),
 
-  deleteGroupTask: (id: string, taskId: string) =>
-    request<void>(`${GROUPS}/${id}/tasks/${taskId}`, { method: "DELETE" }),
+  deleteGroupTask: (id: string, taskId: string) => request<void>(`${GROUPS}/${id}/tasks/${taskId}`, { method: "DELETE" }),
 }

@@ -2,10 +2,11 @@
 import { DeleteOutlined, EyeOutlined } from "@ant-design/icons"
 import { Button, Card, Checkbox, Empty, Flex, Popconfirm, Skeleton, Space, Tag, Typography } from "antd"
 import dayjs from "dayjs"
-import type { Task } from "../types/task"
+import type { Category, Task } from "../types/task"
 
 type Props = {
   tasks: Task[]
+  categories: Category[]
   loading: boolean
   hasMore: boolean
   filtered: boolean
@@ -18,7 +19,8 @@ type Props = {
 const isOverdue = (task: Task) =>
   !task.is_completed && task.due_date !== null && dayjs(task.due_date).isBefore(dayjs(), "day")
 
-export function TaskList({ tasks, loading, hasMore, filtered, onToggle, onDelete, onView, onLoadMore }: Props) {
+export function TaskList({ tasks, categories, loading, hasMore, filtered, onToggle, onDelete, onView, onLoadMore }: Props) {
+  const categoryName = (task: Task) => categories.find((c) => c.id === task.category_id)?.name
   if (loading && tasks.length === 0) return <Skeleton active paragraph={{ rows: 4 }} />
 
   if (tasks.length === 0) {
@@ -47,6 +49,7 @@ export function TaskList({ tasks, loading, hasMore, filtered, onToggle, onDelete
                   {task.title}
                 </Typography.Text>
                 {task.due_date && <Tag color={isOverdue(task) ? "red" : "blue"}>{isOverdue(task) ? `Overdue · ${task.due_date}` : task.due_date}</Tag>}
+                {categoryName(task) && <Tag color="purple">{categoryName(task)}</Tag>}
               </Space>
               {task.description && (
                 <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ margin: "4px 0 0" }}>

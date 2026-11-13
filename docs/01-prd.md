@@ -129,6 +129,11 @@ Priorities are per release: a Beta "Must" is required for the final, not for the
 | F-21 | User profile: view profile, change name, change password | Beta | Should |
 | F-22 | Activity log: record what users did (logins, task and group actions) and show it to admins | Beta | Should |
 | F-23 | Admin filters: narrow users, tasks, groups and activity by user, group, status, text and dates | Beta | Should |
+| F-24 | Task categories: private categories, assign one to a task, filter and search the task list | Beta | Could |
+| F-25 | Sessions: list the devices a user is logged in on and log them out | Beta | Should |
+| F-26 | Group permissions: the owner chooses which task actions each member may do | Beta | Should |
+| F-27 | Admin tools: user detail, bulk actions, group delete, CSV export, activity purge, URL-kept filters | Beta | Should |
+| F-28 | Security monitoring: log forged or rejected tokens and denied access, security report for admins, retention of old activity | Beta | Should |
 
 ## 7. User stories
 
@@ -167,6 +172,11 @@ Priorities are per release: a Beta "Must" is required for the final, not for the
 | US-24 | As a user, I want to change my name and my password, so I can keep my account up to date and secure. | F-21 |
 | US-25 | As an admin, I want to see what users did (logins, failed logins, task and group actions) with time and IP address, so I can spot misuse and support users. | F-22 |
 | US-26 | As an admin, I want to filter the lists by user, group, status, text and dates, so I can find what I need quickly. | F-23 |
+| US-27 | As a user, I want to put my tasks in categories and filter or search them, so I can find a task quickly. | F-24 |
+| US-28 | As a user, I want to see where I am logged in and log out other devices, so I can protect my account if I lose a device. | F-25 |
+| US-29 | As a group owner, I want to decide whether each member may create, edit or assign tasks (while only I can delete), so the group stays under control. | F-26 |
+| US-30 | As an admin, I want to act on many users or tasks at once, export lists as CSV and clean up old activity, so I can manage the system efficiently. | F-27 |
+| US-31 | As an admin, I want forged or rejected tokens and denied requests logged and summarised, so I can notice an attack. | F-28 |
 
 ## 8. Success metrics
 
