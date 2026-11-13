@@ -652,7 +652,7 @@ Row-level rules that depend on the data are checked inside the service:
 - Assignee: must exist in `group_member` for that group, otherwise `422`. Removing a member sets their assigned tasks in that group to `assignee_id = null`.
 - Change role: `user_id == caller` → `400`.
 - Ban: target is the caller or an admin → `400`. Otherwise set `is_banned = true`, `banned_at = now`, `ban_reason`, and revoke all the user's refresh tokens in the same transaction. Unban clears the three fields.
-- Login and refresh also reject banned users with `403`.
+- Login and refresh also reject banned users with `403`. The ban is read from the database on every authenticated request, so it takes effect on the banned user's very next request, even with an access token that has not expired. The frontend turns a `403 Account banned` into a sign-out (it revokes the cookie, removes the stored token and shows the login page); a page that is just left open notices on its next action.
 - Change password: verify `current_password` (`400` if wrong), hash `new_password`, revoke all the user's refresh tokens; the client then logs in again.
 
 ### 10.4 Admin dashboard stats
