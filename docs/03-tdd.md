@@ -173,7 +173,7 @@ erDiagram
 | `id` | uuid | Primary key |
 | `email` | varchar(254) | Unique, stored lowercase |
 | `name` | varchar(100) | Not null |
-| `password_hash` | varchar | Argon2 hash, never returned by the API |
+| `password_hash` | varchar | `v1$` + Argon2 hash (older rows: plain Argon2), never returned by the API |
 | `role` | varchar(10) | `user` or `admin`, default `user` |
 | `failed_login_count` | integer | Default 0 |
 | `locked_until` | timestamp (UTC) | Nullable |
@@ -489,6 +489,7 @@ The service signals a broken business rule (a due date in the past) by raising `
 | `DATABASE_URL` | not set (SQLite default) | Supabase transaction pooler URL (port `6543`) | MVP |
 | `POSTGRES_URL` | not set | Set by the Supabase integration on Vercel; used when `DATABASE_URL` is not set | MVP |
 | `JWT_SECRET` | optional; without it a fixed development value is used | Required: a random 32+ byte secret (`python -c "import secrets; print(secrets.token_urlsafe(48))"`); logging in fails without it | Beta |
+| `PASSWORD_PEPPER` | optional; without it a fixed development value is used | Required: a random 32+ byte secret, generated like `JWT_SECRET`; never change it once users exist (it would invalidate their passwords) | Beta |
 | `ACCESS_TOKEN_MINUTES` | `15` | `15` | Beta |
 | `REFRESH_TOKEN_DAYS` | `7` | `7` | Beta |
 | `MIGRATION_DATABASE_URL` | not needed | Not on Vercel. Used only on a developer machine to run Alembic against Supabase (session pooler, port `5432`) | MVP |
@@ -533,6 +534,7 @@ flowchart LR
 ### 10.2 Passwords and login lockout
 
 - Hash with `pwdlib` (Argon2). Verify on login; never log or return the hash.
+- **Pepper:** before hashing, the password is run through `HMAC-SHA256(PASSWORD_PEPPER, password)`. The stored value is `v1$<argon2 hash>`. The Argon2 salt is random per hash and lives inside the hash string; the pepper lives only in the environment, so a database leak alone is not enough to crack passwords. Hashes without the `v1$` prefix (made before the pepper) still verify and are replaced by a peppered hash on the next successful login. Changing the pepper invalidates every `v1$` hash.
 - Unknown email and wrong password both return `401 "Invalid email or password"`, so emails cannot be discovered.
 - Wrong password: `failed_login_count += 1`. At 5, set `locked_until = now + 15 min` and reset the count. While `locked_until > now`, login returns `429`. A successful login resets the count. An unknown email never counts, so a stranger cannot lock someone else out by guessing emails.
 - Stored in the database (not in memory) because serverless functions do not share memory.
@@ -615,7 +617,7 @@ stats = AdminStats(
 
 | Area | Design |
 |---|---|
-| Passwords | Argon2 via `pwdlib`, minimum 8 characters |
+| Passwords | Argon2 via `pwdlib` with a per-hash salt and a `PASSWORD_PEPPER` (section 10.2), minimum 8 characters |
 | Tokens | Section 10.1; `JWT_SECRET` only in env vars |
 | Cookies | `HttpOnly`, `Secure`, `SameSite=Strict`, path-limited |
 | CORS | Not enabled: frontend and API share the Vercel origin; locally Vite proxies `/api` |

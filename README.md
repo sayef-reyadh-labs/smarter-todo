@@ -17,7 +17,7 @@ A task app for students: keep your own to-do list, and share task lists with you
 - Profile page: change your name and password
 - Group tasks: create a group, add members, share and assign tasks
 - Roles: `user` and `admin`; admin dashboard with stats, ban / unban users
-- Security: Argon2 password hashing, login lockout, secure cookies, security headers
+- Security: Argon2 password hashing with a salt and a server-side pepper, login lockout, secure cookies, security headers
 
 ## Tech stack
 
@@ -185,6 +185,7 @@ Locally nothing needs to be set: the app uses the SQLite file `backend/smarter_t
 | `DATABASE_URL` | MVP (production) | Supabase transaction pooler URL (port `6543`), e.g. `postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`. Leave unset locally to use SQLite. Vercel cannot keep a SQLite file between requests, so without a hosted database the deployed app loses its data. |
 | `POSTGRES_URL` | MVP (production) | Set automatically by the Supabase integration on Vercel. Used when `DATABASE_URL` is not set; `postgres://` and the Supabase-only `supa=` parameter are handled for you. |
 | `JWT_SECRET` | Auth (production) | Long random string, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"`. **Required on Vercel** (logging in fails without it); locally a fixed development value is used. |
+| `PASSWORD_PEPPER` | Auth (production) | Long random string, same generator as `JWT_SECRET`. **Required on Vercel**; mixed into every password before hashing, so a leaked database alone cannot be cracked. Never change it once users exist, or their passwords stop working. Locally a fixed development value is used. |
 | `ACCESS_TOKEN_MINUTES` | Auth | Default `15` |
 | `REFRESH_TOKEN_DAYS` | Auth | Default `7` |
 | `MIGRATION_DATABASE_URL` | Migrations only | Supabase session pooler URL (port `5432`) used when you run Alembic against the hosted database. Not set on Vercel. |
@@ -195,7 +196,7 @@ Never commit secrets or `.env` files. See [TDD, section 8](docs/03-tdd.md#8-conf
 
 1. Push the repo to GitHub.
 2. Go to https://vercel.com/new, import the repo and click **Deploy**. Keep **Root Directory** as `./`.
-3. Add the environment variables from the table above (at least `DATABASE_URL` or the Supabase integration, and `JWT_SECRET`).
+3. Add the environment variables from the table above (at least `DATABASE_URL` or the Supabase integration, `JWT_SECRET` and `PASSWORD_PEPPER`).
 4. Run `alembic upgrade head` against Supabase (see *Changing the database*), then promote the first admin (see *Making someone an admin*).
 5. Smoke test the production URL: sign up, log in, add a task, create a group and add a member, open `/admin` as the admin, and check `/api/docs`.
 
