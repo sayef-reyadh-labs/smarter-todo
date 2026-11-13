@@ -1,6 +1,6 @@
 // Table of what users did, newest first, with user, action, text and date filters, a CSV export and a purge of old entries.
 import { DeleteOutlined } from "@ant-design/icons"
-import { Button, DatePicker, Flex, InputNumber, Modal, Select, Table, Tag, Tooltip, Typography, type TableColumnsType } from "antd"
+import { Button, DatePicker, Flex, InputNumber, Modal, Select, Switch, Table, Tag, Tooltip, Typography, type TableColumnsType } from "antd"
 import dayjs from "dayjs"
 import { useState } from "react"
 import { ACTIVITY_ACTIONS, HOSTILE_ACTIONS, type ActivityFilters, type AdminActivity, type Page } from "../types/admin"
@@ -14,6 +14,8 @@ type Props = {
   page: number
   pageSize: number
   filters: ActivityFilters
+  live: boolean
+  onLiveChange: (live: boolean) => void
   onFilterChange: (patch: Partial<ActivityFilters>) => void
   onPageChange: (page: number) => void
   onExport: () => Promise<void>
@@ -31,7 +33,7 @@ const labelOf = (action: string) => action.replaceAll("_", " ")
 
 const actionOptions = ACTIVITY_ACTIONS.map((a) => ({ value: a, label: labelOf(a) }))
 
-export function AdminActivityTable({ activity, loading, page, pageSize, filters, onFilterChange, onPageChange, onExport, onPurge }: Props) {
+export function AdminActivityTable({ activity, loading, page, pageSize, filters, live, onLiveChange, onFilterChange, onPageChange, onExport, onPurge }: Props) {
   const [purging, setPurging] = useState(false)
   const [days, setDays] = useState<number | null>(90)
 
@@ -88,7 +90,13 @@ export function AdminActivityTable({ activity, loading, page, pageSize, filters,
             onChange={(value) => onFilterChange({ date_from: value?.[0]?.format("YYYY-MM-DD"), date_to: value?.[1]?.format("YYYY-MM-DD") })}
           />
         </Flex>
-        <Flex gap={8}>
+        <Flex gap={8} align="center">
+          <Tooltip title="Refreshes every 5 seconds while this tab is open">
+            <Flex align="center" gap={6}>
+              <Switch size="small" checked={live} onChange={onLiveChange} aria-label="Live updates" />
+              <Typography.Text type={live ? undefined : "secondary"}>Live</Typography.Text>
+            </Flex>
+          </Tooltip>
           <ExportButton onExport={onExport} />
           <Button danger icon={<DeleteOutlined />} onClick={() => setPurging(true)}>
             Purge old entries

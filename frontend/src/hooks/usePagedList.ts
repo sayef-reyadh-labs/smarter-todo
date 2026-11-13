@@ -9,9 +9,10 @@ type Options<F> = {
   prefix: string // keeps the parameters of different lists apart, e.g. "t_status"
   keys: readonly (keyof F & string)[]
   pageSize?: number
+  poll?: { ms: number; enabled: boolean } // refetch quietly (no spinner) while enabled
 }
 
-export function usePagedList<T, F extends object>(fetcher: Fetcher<T, F>, { prefix, keys, pageSize = 10 }: Options<F>) {
+export function usePagedList<T, F extends object>(fetcher: Fetcher<T, F>, { prefix, keys, pageSize = 10, poll }: Options<F>) {
   const [params, setParams] = useSearchParams()
   const [data, setData] = useState<Page<T> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,16 +33,16 @@ export function usePagedList<T, F extends object>(fetcher: Fetcher<T, F>, { pref
   }, [signature])
 
   const load = useCallback(
-    async (p: number, f: F) => {
+    async (p: number, f: F, silent = false) => {
       const id = ++latest.current
-      setLoading(true)
+      if (!silent) setLoading(true)
       try {
         const result = await fetcher((p - 1) * pageSize, pageSize, f)
         if (id !== latest.current) return
         setData(result)
         setError("")
       } catch (err) {
-        if (id === latest.current) setError(err instanceof Error ? err.message : "Something went wrong")
+        if (id === latest.current && !silent) setError(err instanceof Error ? err.message : "Something went wrong")
       } finally {
         if (id === latest.current) setLoading(false)
       }
@@ -52,6 +53,16 @@ export function usePagedList<T, F extends object>(fetcher: Fetcher<T, F>, { pref
   useEffect(() => {
     load(page, filters)
   }, [load, page, filters])
+
+  const pollMs = poll?.ms
+  const polling = poll?.enabled ?? false
+  useEffect(() => {
+    if (!pollMs || !polling) return
+    const timer = setInterval(() => {
+      if (!document.hidden) load(page, filters, true)
+    }, pollMs)
+    return () => clearInterval(timer)
+  }, [load, page, filters, pollMs, polling])
 
   const write = (change: (next: URLSearchParams) => void) =>
     setParams(

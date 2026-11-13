@@ -162,6 +162,10 @@ vercel dev -L
 
 > **Reset the data:** stop the backend, delete `backend/smarter_todo.db` and run `alembic upgrade head` again.
 
+### Demo data
+
+With the backend running, `python scripts/seed_demo.py` (from `backend/`) creates 10 demo users (`demo01@example.com` to `demo10@example.com`, password `12345678`), each with categories and 10 or more tasks, plus several groups with members, limited permissions and assigned tasks. It uses only the public API, so it also works on a hosted deployment: `python scripts/seed_demo.py https://your-app.vercel.app`. Running it again reuses the existing users. Only seed a database you can throw away, because the password is public.
+
 ### Changing the database (migrations)
 
 The tables are created and changed only by Alembic migrations in `backend/alembic/versions/`; the app never creates tables itself. Run `alembic upgrade head` from `backend/` to apply them.
