@@ -27,13 +27,18 @@ def call(method, path, token=None, body=None):
     req.add_header("Content-Type", "application/json")
     if token:
         req.add_header("Authorization", "Bearer " + token)
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            text = resp.read().decode()
-            return resp.status, (json.loads(text) if text else None)
-    except urllib.error.HTTPError as err:
-        text = err.read().decode()
-        return err.code, (json.loads(text) if text.startswith("{") else text)
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                text = resp.read().decode()
+                return resp.status, (json.loads(text) if text else None)
+        except urllib.error.HTTPError as err:
+            text = err.read().decode()
+            return err.code, (json.loads(text) if text.startswith("{") else text)
+        except (TimeoutError, urllib.error.URLError):  # a hosted function can stall; try again
+            if attempt == 2:
+                raise
+    raise AssertionError("unreachable")
 
 
 def ok(status, what):
