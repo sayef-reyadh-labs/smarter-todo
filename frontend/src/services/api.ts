@@ -31,24 +31,32 @@ const CATEGORIES = "/api/v1/categories"
 
 // The access token is kept in localStorage with its expiry, so a reload or a second tab can reuse it until it runs out.
 const TOKEN_KEY = "smarter_todo_access_token"
+// A 401 in the last seconds before the expiry is treated as plain expiry (clock and network delay).
+const EXPIRY_MARGIN_MS = 30_000
 let accessToken: string | null = null
+let accessExpiresAt = 0
 let sessionExpiredHandler: (() => void) | null = null
 
 const readStoredToken = (): string | null => {
   try {
     const saved = JSON.parse(localStorage.getItem(TOKEN_KEY) ?? "null") as { token: string; expiresAt: number } | null
-    if (saved && typeof saved.token === "string" && saved.expiresAt > Date.now()) return saved.token
+    if (saved && typeof saved.token === "string" && saved.expiresAt > Date.now()) {
+      accessExpiresAt = saved.expiresAt
+      return saved.token
+    }
   } catch {
     // unreadable value: treat as no token
   }
   localStorage.removeItem(TOKEN_KEY)
+  accessExpiresAt = 0
   return null
 }
 
 // Remembers a new token for expires_in seconds, or forgets it when called with null.
 const storeToken = (token: TokenResponse | null) => {
   accessToken = token?.access_token ?? null
-  if (token) localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: token.access_token, expiresAt: Date.now() + token.expires_in * 1000 }))
+  accessExpiresAt = token ? Date.now() + token.expires_in * 1000 : 0
+  if (token) localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: token.access_token, expiresAt: accessExpiresAt }))
   else localStorage.removeItem(TOKEN_KEY)
 }
 
@@ -101,10 +109,33 @@ const refreshAccessToken = (): Promise<boolean> => {
   return refreshing
 }
 
+// Several calls can fail together; they share one logout so the cookie is only revoked once.
+let ending: Promise<void> | null = null
+
+const endSession = (): Promise<void> => {
+  ending ??= (async () => {
+    try {
+      await fetch(`${AUTH}/logout`, { method: "POST" }) // revokes the refresh token and clears its cookie
+    } catch {
+      // offline: the local session is dropped anyway
+    } finally {
+      storeToken(null)
+      sessionExpiredHandler?.()
+      ending = null
+    }
+  })()
+  return ending
+}
+
 // Sends the call; an expired access token is renewed from the refresh cookie and the call is tried once more.
+// A token the server rejects before it should have expired was tampered with (or its user is gone): the session ends instead.
 const sendWithRefresh = async (url: string, options?: RequestInit): Promise<Response> => {
   let res = await send(url, options)
   if (res.status === HttpStatus.Unauthorized && !url.startsWith(AUTH)) {
+    if (accessToken !== null && accessExpiresAt - Date.now() > EXPIRY_MARGIN_MS) {
+      await endSession()
+      throw new Error("Your session is not valid any more. Please log in again.")
+    }
     if (await refreshAccessToken()) {
       res = await send(url, options)
     } else {
