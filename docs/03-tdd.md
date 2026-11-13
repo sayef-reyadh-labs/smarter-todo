@@ -195,6 +195,19 @@ erDiagram
 | `revoked_at` | timestamp (UTC) | Nullable |
 | `created_at` | timestamp (UTC) | Not null |
 
+**Added by migration 0007** (`0007_categories_sessions`)
+
+| Table / column | Type | Rules |
+|---|---|---|
+| `app_user.last_login_at` | timestamp (UTC) | Nullable; set on every successful login |
+| `refresh_token.session_id` | uuid | One per login, kept across rotations; indexed; backfilled for old rows |
+| `refresh_token.user_agent`, `ip_address` | varchar(200), varchar(45) | The device that logged in |
+| `refresh_token.started_at`, `last_used_at` | timestamp (UTC) | Session start and last refresh |
+| `category` | table | `id`, `owner_id` (FK → `app_user`, cascade, indexed), `name` (varchar 50), `created_at`; names are unique per owner ignoring case (checked in the service) |
+| `task.category_id` | uuid | FK → `category.id`, `ON DELETE SET NULL`, indexed; personal tasks only |
+| `group_member.granted_permissions` | varchar(300) | Comma-separated delegated permissions of a member (`group:tasks:create`, `group:tasks:update`, `group:tasks:assign`); existing members get all three |
+| `activity_log.ip_address` | index | `ix_activity_log_ip_address`, for the security report |
+
 **`task_group`**
 
 | Column | Type | Rules |
@@ -284,7 +297,7 @@ erDiagram
     }
 ```
 
-**Activity log (`activity_log`):** one row per thing a user did (FR-42). `user_id` is nullable with `ON DELETE SET NULL` and `email` is a snapshot, so history stays readable if a user is deleted, and a failed login for an unknown email still has a row. `action` is the `ActivityAction` enum value (`login`, `login_failed`, `task_created`, ...). Indexes: `user_id`, `action`, `created_at`. Never store passwords, tokens or hashes in any column. Rows are kept until someone deletes them by hand; add a retention job if the table grows.
+**Activity log (`activity_log`):** one row per thing a user did (FR-42). `user_id` is nullable with `ON DELETE SET NULL` and `email` is a snapshot, so history stays readable if a user is deleted, and a failed login for an unknown email still has a row. `action` is the `ActivityAction` enum value (`login`, `login_failed`, `task_created`, ...). Indexes: `user_id`, `action`, `created_at`. Never store passwords, tokens or hashes in any column. Rows older than `ACTIVITY_RETENTION_DAYS` (default 90, `0` = forever) are deleted by `app/activity/retention.py`, called opportunistically on login at most once an hour; an admin can also purge by hand (`DELETE /api/v1/admin/activity?older_than_days=`).
 
 **Who can see a task:**
 - Personal task (`group_id` is null): only `owner_id` (and admins).
@@ -373,11 +386,24 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 | `POST` | `/api/v1/auth/login` | Guest | `LoginRequest` | `200` `TokenResponse` + cookie | `401`, `429` | FR-13, FR-34 |
 | `POST` | `/api/v1/auth/refresh` | Refresh cookie | — | `200` `TokenResponse` + new cookie | `401` | FR-14 |
 | `POST` | `/api/v1/auth/logout` | Refresh cookie | — | `204`, cookie cleared | — | FR-15 |
+| `GET` | `/api/v1/auth/sessions` | User | — | `200` `SessionRead[]` (marks the current one) | `401` | FR-55 |
+| `DELETE` | `/api/v1/auth/sessions/{session_id}` | User | — | `204` | `404` | FR-55 |
+| `POST` | `/api/v1/auth/sessions/revoke-others` | User | — | `204` | `401` | FR-55 |
+| `POST` | `/api/v1/auth/sessions/revoke-all` | User | — | `204`, cookie cleared | `401` | FR-55 |
 | `GET` | `/api/v1/users/me` | User | — | `200` `UserRead` | `401` | FR-16 |
 | `PATCH` | `/api/v1/users/me` | User | `ProfileUpdate` | `200` `UserRead` | `422` | FR-40 |
 | `POST` | `/api/v1/users/me/password` | User | `PasswordChange` | `204` (all sessions logged out) | `400` (wrong current password), `422` | FR-41 |
 
-**Personal tasks** — same five endpoints as the MVP, now scoped to the caller (`owner_id = me`, `group_id is null`). Other users' tasks return `404` (FR-17 – FR-19).
+**Personal tasks** — same five endpoints as the MVP, now scoped to the caller (`owner_id = me`, `group_id is null`). Other users' tasks return `404` (FR-17 – FR-19). The list accepts `q`, `category_id`, `uncategorized` and `status` (`open` / `done` / `overdue`), built into a frozen dataclass in `app/tasks/filters.py` (FR-54). Create and update accept `category_id`.
+
+**Categories**
+
+| Method | Path | Who | Body | Success | Errors | FR |
+|---|---|---|---|---|---|---|
+| `GET` | `/api/v1/categories` | User | — | `200` `CategoryRead[]` with `task_count` | `401` | FR-53 |
+| `POST` | `/api/v1/categories` | User | `CategoryCreate` | `201` `CategoryRead` | `409` (duplicate, or 30 reached), `422` | FR-53 |
+| `PATCH` | `/api/v1/categories/{category_id}` | User | `CategoryUpdate` | `200` `CategoryRead` | `404`, `409`, `422` | FR-53 |
+| `DELETE` | `/api/v1/categories/{category_id}` | User | — | `204` (tasks become uncategorized) | `404` | FR-53 |
 
 **Admin**
 
@@ -392,6 +418,18 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 | `POST` | `/api/v1/admin/users/{user_id}/ban` | Admin | `BanRequest` | `200` `AdminUserRead` | `400` (self / other admin), `403`, `404` | FR-36 |
 | `POST` | `/api/v1/admin/users/{user_id}/unban` | Admin | — | `200` `AdminUserRead` | `403`, `404` | FR-38 |
 | `GET` | `/api/v1/admin/activity?offset&limit&user_id&action&q&date_from&date_to` | Admin (`ADMIN_ACTIVITY_VIEW`) | — | `200` `ActivityPage` | `403`, `422` (unknown action, bad date) | FR-42, FR-43 |
+| `GET` | `/api/v1/admin/users/{user_id}` | Admin | — | `200` `AdminUserDetail` | `403`, `404` | FR-46 |
+| `POST` | `/api/v1/admin/users/{user_id}/revoke-sessions` | Admin | — | `204` | `403`, `404` | FR-46 |
+| `POST` | `/api/v1/admin/users/bulk-ban` | Admin | `BulkBan` (`ids` 1–50, `reason?`) | `200` `BulkResult` (`affected`, `skipped`) | `403`, `422` | FR-47 |
+| `POST` | `/api/v1/admin/users/bulk-unban` | Admin | `BulkIds` | `200` `BulkResult` | `403`, `422` | FR-47 |
+| `POST` | `/api/v1/admin/tasks/bulk-delete` | Admin | `BulkIds` | `200` `BulkResult` | `403`, `422` | FR-47 |
+| `GET` | `/api/v1/admin/groups/{group_id}` | Admin | — | `200` `AdminGroupRead` | `403`, `404` | FR-45 |
+| `DELETE` | `/api/v1/admin/groups/{group_id}` | Admin (`ADMIN_GROUPS_DELETE`) | — | `204` | `403`, `404` | FR-48 |
+| `GET` | `/api/v1/admin/users/export`, `/tasks/export`, `/activity/export` | Admin (`ADMIN_EXPORT`) | same filters as the lists | `200` CSV download | `403`, `422` | FR-49 |
+| `DELETE` | `/api/v1/admin/activity?older_than_days=` | Admin (`ADMIN_ACTIVITY_PURGE`) | — | `200` `PurgeResult` | `400` (no value and retention off), `403`, `422` | FR-50 |
+| `GET` | `/api/v1/admin/security/report?hours&min_failures` | Admin (`ADMIN_ACTIVITY_VIEW`) | — | `200` `SecurityReport` | `403`, `422` | FR-52 |
+
+Fixed paths such as `/users/export` and `/users/bulk-ban` are declared before the `{user_id}` routes so they are not read as ids. The CSV writer (`app/admin/export.py`) adds a BOM for Excel, prefixes cells starting with `=`, `+`, `-` or `@` with a quote (formula injection) and stops at 10,000 rows.
 
 The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like the task list. `AdminUserRead` is `UserRead` plus `is_banned`, `banned_at`, `ban_reason` and a computed `status` (`active` / `banned`), so the dashboard can show who is banned (FR-39). `AdminTaskRead` is `TaskRead` plus `owner_id`, `owner_email`, `group_id` and `group_name`.
 
@@ -409,11 +447,12 @@ The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like t
 | `GET` | `/api/v1/groups/{group_id}/members` | Member | — | `200` `MemberRead[]` | `404` | FR-28 |
 | `POST` | `/api/v1/groups/{group_id}/members` | Owner | `MemberAdd` | `201` `MemberRead` | `403`, `404`, `409` | FR-28 |
 | `DELETE` | `/api/v1/groups/{group_id}/members/{user_id}` | Owner, or the member themself | — | `204` | `400` (owner leaving), `403`, `404` | FR-29 |
+| `PATCH` | `/api/v1/groups/{group_id}/members/{user_id}/permissions` | Owner | `MemberPermissionsUpdate` (`permissions: string[]`) | `200` `MemberRead` | `403`, `404`, `422` (not delegable) | FR-57 |
 | `GET` | `/api/v1/groups/{group_id}/tasks?offset&limit` | Member | — | `200` `GroupTaskPage` | `404` | FR-30 |
-| `POST` | `/api/v1/groups/{group_id}/tasks` | Member | `GroupTaskCreate` | `201` `GroupTaskRead` | `404`, `409`, `422` | FR-30, FR-31 |
+| `POST` | `/api/v1/groups/{group_id}/tasks` | Member with `group:tasks:create` | `GroupTaskCreate` | `201` `GroupTaskRead` | `403`, `404`, `409`, `422` | FR-30, FR-31, FR-57 |
 | `GET` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member | — | `200` `GroupTaskRead` | `404` | FR-30 |
-| `PATCH` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member | `GroupTaskUpdate` | `200` `GroupTaskRead` | `404`, `409`, `422` | FR-30, FR-31 |
-| `DELETE` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Task creator or owner | — | `204` | `403`, `404` | FR-32 |
+| `PATCH` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member with `group:tasks:update` (and `group:tasks:assign` to change the assignee) | `GroupTaskUpdate` | `200` `GroupTaskRead` | `403`, `404`, `409`, `422` | FR-30, FR-31, FR-57 |
+| `DELETE` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Owner | — | `204` | `403`, `404` | FR-32 |
 
 ### 6.3 Examples
 
@@ -512,6 +551,7 @@ The service signals a broken business rule (a due date in the past) by raising `
 | `PASSWORD_PEPPER` | optional; without it a fixed development value is used | Required: a random 32+ byte secret, generated like `JWT_SECRET`; never change it once users exist (it would invalidate their passwords) | Beta |
 | `ACCESS_TOKEN_MINUTES` | `15` | `15` | Beta |
 | `REFRESH_TOKEN_DAYS` | `7` | `7` | Beta |
+| `ACTIVITY_RETENTION_DAYS` | `90` | `90` (`0` keeps the log forever) | Beta |
 | `MIGRATION_DATABASE_URL` | not needed | Not on Vercel. Used only on a developer machine to run Alembic against Supabase (session pooler, port `5432`) | MVP |
 
 No secrets are committed. `.env` stays in `.gitignore`.
@@ -549,7 +589,8 @@ flowchart LR
 
 - **Refresh rotation:** each refresh revokes the old token and issues a new one. If a revoked token is used again, all of that user's refresh tokens are revoked (it was probably stolen).
 - **Logout:** revokes the current refresh token and clears the cookie. The access token simply expires within 15 minutes.
-- The `role` claim is only informational; permission checks always use the role loaded from the database, so a role change applies on the next request.
+- The `role` claim is only informational; permission checks always use the role loaded from the database, so a role change applies on the next request. Group permissions are not in the token either: they live in `group_member.granted_permissions` and are read per request, so the owner can revoke a grant instantly (a JWT cannot be revoked before it expires).
+- **Sessions:** every login creates a `session_id` that stays the same when the refresh token rotates. Revoking a session revokes its refresh tokens; its access token stays valid for up to 15 minutes. Reusing a revoked refresh token triggers reuse detection only if its session is still live, so logging out a device is not reported as theft.
 
 ### 10.2 Passwords and login lockout
 
@@ -602,6 +643,8 @@ GROUP_POLICY.authorize(subject, Permission.GROUP_TASKS_DELETE, "Only the task cr
 | An extra condition (for example a time window or a banned resource) | `.require(Permission.X, lambda subject: ...)`; every rule must pass |
 | A new scope (for example teams) | Create another `Policy()` in `policies.py` and a dependency that calls it |
 
+**Group delegation:** `DELEGABLE_GROUP_PERMISSIONS` lists the permissions an owner may hand out (`group:tasks:create`, `group:tasks:update`, `group:tasks:assign`); `DEFAULT_GRANTS` (`app/groups/models.py`) gives a new member all three; `app/groups/grants.py` converts the stored text. `Subject(..., granted=...)` carries the member's grants and `policy.py` allows a permission for a member only if it is in `granted`. Everything else (delete task, rename, add / remove members, manage permissions) is owner-only. `GroupRead.my_permissions` lets the frontend hide what the caller cannot do; the server still enforces it.
+
 Row-level rules that depend on the data are checked inside the service:
 - Personal tasks: query with `owner_id == user.id AND group_id IS NULL`; not found → `404`.
 - Delete group task: allowed if `task.owner_id == user.id` or membership role is `owner`.
@@ -646,6 +689,8 @@ stats = AdminStats(
 | CORS | Not enabled: frontend and API share the Vercel origin; locally Vite proxies `/api` |
 | Security headers | Added for all routes in the top-level `headers` of `vercel.json` (below) |
 | Brute force | Login lockout (section 10.2) |
+| Attack monitoring | `app/activity/security_log.py` records `auth_rejected` (malformed, forged or badly signed JWT), `access_denied` (`403`) and `token_reuse_detected` with IP and user agent. It is called from the `AppError` handler in `main.py`, so every `401` / `403` and reuse error passes through it. Expired or missing tokens are not logged (normal use), at most 30 events per IP per minute are written, and control characters are replaced so a hostile header cannot forge log lines. `GET /api/v1/admin/security/report` groups failures by IP and account. |
+| Abuse of admin tools | Bulk actions are capped at 50 ids, exports at 10,000 rows with CSV formula escaping, and every admin action is itself written to the activity log |
 | Injection | SQLModel/SQLAlchemy parameterised queries only |
 | Errors | Catch-all handler returns a generic `500`; details only in logs |
 | Data exposure | Response schemas (`UserRead`, `TaskRead`) list fields explicitly; `password_hash` and token hashes are never in a response schema |

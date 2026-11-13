@@ -212,6 +212,22 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 | FR-43 | An admin shall be able to list the activity log (paginated, newest first) and filter it by user, action, text (email or detail) and date range (UTC days); a non-admin gets `403`. The admin dashboard shows it. | Beta | US-25 |
 | FR-44 | An admin shall be able to filter the admin lists: users by text (name or email), role and status; tasks by owner, group, scope (`personal` / `group`), status (`open` / `done` / `overdue`) and title text. Filters combine with AND, and the totals and pages follow the filters. Task rows show the owner's email and the group name. | Beta | US-26 |
 | FR-45 | An admin shall be able to list all groups (name, owner, member count, task count), searchable by name and filterable by owner. | Beta | US-26 |
+| FR-46 | An admin shall be able to open a user's detail (task counts, groups, recent tasks, sessions, recent activity) and log the user out everywhere (revoke all refresh tokens). | Beta | US-30 |
+| FR-47 | An admin shall be able to ban or unban up to 50 users, and delete up to 50 tasks, in one request. Each response reports how many items were `affected` and how many were `skipped` (missing, yourself, another admin, already in that state); the same rules as the single actions apply. | Beta | US-30 |
+| FR-48 | An admin shall be able to delete a group (and its tasks and memberships). | Beta | US-30 |
+| FR-49 | An admin shall be able to export users, tasks and the activity log as CSV using the current filters. Files use UTF-8 with BOM, cells starting with `=`, `+`, `-` or `@` are escaped, and at most 10,000 rows are exported. | Beta | US-30 |
+| FR-50 | An admin shall be able to purge activity entries older than a given number of days. Entries older than `ACTIVITY_RETENTION_DAYS` (default 90, `0` = keep forever) are also deleted automatically, checked at login at most once an hour. | Beta | US-30 |
+| FR-51 | The system shall log security events in the activity log with IP address and user agent: `auth_rejected` (malformed, forged or wrongly signed token), `access_denied` (`403`) and `token_reuse_detected`. Expired or missing tokens are not logged; at most 30 events per IP per minute are stored; control characters are removed from logged text. | Beta | US-31 |
+| FR-52 | An admin shall get a security report for a time window: failed logins and rejected tokens by IP address and by account, and accounts with at least a given number of failures. | Beta | US-31 |
+
+### 3.4.1 Categories and sessions — Beta
+
+| ID | Requirement | Release | Story |
+|---|---|---|---|
+| FR-53 | A user shall be able to create, list, rename and delete personal categories (name 1–50 characters, unique per user ignoring case, at most 30 per user; a duplicate or the 31st returns `409`). Deleting a category keeps its tasks, which become uncategorized. Group tasks have no category. | Beta | US-27 |
+| FR-54 | A personal task may have a `category_id` that must belong to the caller (`422` otherwise). The task list can be filtered by `category_id`, `uncategorized`, `status` (`open` / `done` / `overdue`) and searched by title or description text (`q`). | Beta | US-27 |
+| FR-55 | Each login shall create a session (device, IP address, start and last use). A user shall be able to list their sessions, log out one, log out all others, or log out everywhere. A logged-out device stays valid until its access token expires (15 minutes) but cannot refresh. | Beta | US-28 |
+| FR-56 | The user's last login time shall be stored and shown to admins. | Beta | US-30 |
 
 ### 3.5 Groups and group tasks — Beta
 
@@ -224,7 +240,8 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 | FR-29 | The owner shall be able to remove a member. A member shall be able to leave. The owner cannot leave (they delete the group instead). | Beta | US-15, US-18 |
 | FR-30 | Group members shall be able to list, create, view and update the group's tasks. A group task has a title, an optional description and an optional due date (not in the past), like a personal task. | Beta | US-16 |
 | FR-31 | A group task may have an `assignee_id`, which must be a member of the group (`422` otherwise). When a member leaves or is removed, their assigned tasks in that group become unassigned. | Beta | US-17 |
-| FR-32 | A group task can be deleted by its creator or by the group owner. | Beta | US-16 |
+| FR-32 | Only the group owner can delete a group task. | Beta | US-16, US-29 |
+| FR-57 | The group owner shall grant each member any of `group:tasks:create`, `group:tasks:update` and `group:tasks:assign`; new members get all three. Members without a grant get `403`. Deleting tasks, renaming the group, managing members and managing permissions stay owner-only. The grants are stored in the database (not in the JWT) so a change applies on the next request, and the group response tells the caller their own permissions. | Beta | US-29 |
 | FR-33 | A user who is not a member of a group shall get `404` for that group and its tasks. | Beta | US-16 |
 
 ### 3.6 Account security — Beta
@@ -277,8 +294,11 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 | View dashboard stats, ban / unban users | No | No (`403`) | No (`403`) | No (`403`) | Yes (not self, not other admins) |
 | Create a group | No | Yes | Yes | Yes | Yes |
 | View group, members and group tasks | No | No (`404`) | Yes | Yes | No (`404`) unless member |
-| Create / update / assign group tasks | No | No (`404`) | Yes | Yes | No (`404`) unless member |
-| Delete a group task | No | No | Own tasks only | Yes | Yes (admin endpoint) |
+| Create / update / assign group tasks | No | No (`404`) | If the owner granted it (`403` otherwise) | Yes | No (`404`) unless member |
+| Delete a group task | No | No | No (`403`) | Yes | Yes (admin endpoint) |
+| Choose what each member may do | No | No | No (`403`) | Yes | No |
+| Manage categories, view and revoke own sessions | No | Yes | Yes | Yes | Yes |
+| Export, bulk actions, purge, security report, delete group | No | No (`403`) | No (`403`) | No (`403`) | Yes |
 | Rename / delete group, add / remove members | No | No | No (`403`) | Yes | No |
 | Leave group | No | — | Yes | No (delete instead) | — |
 
@@ -466,4 +486,9 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 | US-22 | FR-38 | `POST /api/v1/admin/users/{id}/unban` | Beta |
 | US-25 | FR-42, FR-43 | `GET /api/v1/admin/activity` | Beta |
 | US-26 | FR-44, FR-45 | `GET /api/v1/admin/users`, `/tasks`, `/groups` with filters | Beta |
+| US-27 | FR-53, FR-54 | `/api/v1/categories`, `GET /api/v1/tasks?q&category_id&uncategorized&status` | Beta |
+| US-28 | FR-55 | `/api/v1/auth/sessions` | Beta |
+| US-29 | FR-32, FR-57 | `PATCH /api/v1/groups/{id}/members/{user_id}/permissions` | Beta |
+| US-30 | FR-46 – FR-50, FR-56 | `/api/v1/admin/users/{id}`, `bulk-*`, `*/export`, `DELETE /api/v1/admin/activity` | Beta |
+| US-31 | FR-51, FR-52 | `GET /api/v1/admin/security/report` | Beta |
 | US-23, US-24 | FR-16, FR-40, FR-41 | `GET` / `PATCH /api/v1/users/me`, `POST /api/v1/users/me/password` | Beta |
