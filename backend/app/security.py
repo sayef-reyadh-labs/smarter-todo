@@ -1,5 +1,6 @@
 # Passwords (Argon2), access tokens (JWT) and refresh tokens; no database and no HTTP in this file.
 import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -15,13 +16,27 @@ ALGORITHM = "HS256"
 # Argon2 is deliberately slow and adds a random salt, so equal passwords get different hashes.
 _hasher = PasswordHash.recommended()
 
+# Stored hashes are "v1$<argon2 hash of HMAC-SHA256(pepper, password)>"; older ones are plain Argon2.
+_PEPPERED_PREFIX = "v1$"
+
+
+def _peppered(password: str) -> str:
+    return hmac.new(settings.password_pepper.encode(), password.encode(), hashlib.sha256).hexdigest()
+
 
 def hash_password(password: str) -> str:
-    return _hasher.hash(password)
+    return _PEPPERED_PREFIX + _hasher.hash(_peppered(password))
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    if password_hash.startswith(_PEPPERED_PREFIX):
+        return _hasher.verify(_peppered(password), password_hash[len(_PEPPERED_PREFIX) :])
     return _hasher.verify(password, password_hash)
+
+
+# True for hashes made before the pepper existed; login replaces them after a correct password.
+def password_needs_upgrade(password_hash: str) -> bool:
+    return not password_hash.startswith(_PEPPERED_PREFIX)
 
 
 @cache
