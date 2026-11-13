@@ -1,10 +1,12 @@
 // Routes and the Ant Design theme; every page renders inside AppLayout, and the task and profile pages need a login.
 import { App as AntApp, ConfigProvider, theme } from "antd"
 import { BrowserRouter, Route, Routes } from "react-router"
+import { AdminRoute } from "./components/AdminRoute"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { useTheme } from "./context/ThemeContext"
 import { AppLayout } from "./layouts/AppLayout"
 import { AboutPage } from "./pages/AboutPage"
+import { AdminPage } from "./pages/AdminPage"
 import { HomePage } from "./pages/HomePage"
 import { LoginPage } from "./pages/LoginPage"
 import { ProfilePage } from "./pages/ProfilePage"
@@ -27,6 +29,9 @@ function App() {
                 <Route index element={<HomePage />} />
                 <Route path="tasks/:taskId" element={<TaskDetailsPage />} />
                 <Route path="profile" element={<ProfilePage />} />
+                <Route element={<AdminRoute />}>
+                  <Route path="admin" element={<AdminPage />} />
+                </Route>
               </Route>
             </Route>
           </Routes>

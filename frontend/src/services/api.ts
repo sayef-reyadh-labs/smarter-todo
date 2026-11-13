@@ -1,5 +1,6 @@
 // Every backend call lives here; pages never call fetch directly. Also keeps the access token and refreshes it.
 import type { LoginInput, PasswordChangeInput, SignupInput, TokenResponse, User } from "../types/auth"
+import type { AdminStats, AdminTask, AdminUser, Page } from "../types/admin"
 import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
 
 export const PAGE_SIZE = 20
@@ -7,6 +8,7 @@ export const PAGE_SIZE = 20
 const BASE = "/api/v1/tasks"
 const AUTH = "/api/v1/auth"
 const ME = "/api/v1/users/me"
+const ADMIN = "/api/v1/admin"
 
 // The access token lives in memory only (not localStorage), so scripts on the page cannot steal it.
 let accessToken: string | null = null
@@ -116,4 +118,19 @@ export const apiService = {
     request<Task>(`${BASE}/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteTask: (id: string) => request<void>(`${BASE}/${id}`, { method: "DELETE" }),
+
+  getAdminStats: () => request<AdminStats>(`${ADMIN}/stats`),
+
+  getAdminUsers: (offset = 0, limit = 10) => request<Page<AdminUser>>(`${ADMIN}/users?offset=${offset}&limit=${limit}`),
+
+  changeUserRole: (id: string, role: "user" | "admin") =>
+    request<User>(`${ADMIN}/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+
+  banUser: (id: string, reason: string) => post<AdminUser>(`${ADMIN}/users/${id}/ban`, { reason: reason || null }),
+
+  unbanUser: (id: string) => post<AdminUser>(`${ADMIN}/users/${id}/unban`),
+
+  getAdminTasks: (offset = 0, limit = 10) => request<Page<AdminTask>>(`${ADMIN}/tasks?offset=${offset}&limit=${limit}`),
+
+  deleteAdminTask: (id: string) => request<void>(`${ADMIN}/tasks/${id}`, { method: "DELETE" }),
 }
