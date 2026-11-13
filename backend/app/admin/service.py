@@ -17,6 +17,7 @@ from app.auth.models import AppUser
 from app.auth.repository import RefreshTokenRepository
 from app.clock import utc_now
 from app.errors import BadRequestError, NotFoundError
+from app.groups.models import TaskGroup
 from app.tasks.models import Task
 
 
@@ -84,7 +85,7 @@ class AdminService:
                 completed=count(Task, Task.is_completed),
                 created_last_7_days=count(Task, Task.created_at >= week_ago),
             ),
-            groups=GroupStats(total=0),  # groups arrive with issue #6
+            groups=GroupStats(total=count(TaskGroup)),
         )
 
     def _get_user(self, user_id: uuid.UUID) -> AppUser:

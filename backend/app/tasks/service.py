@@ -13,6 +13,12 @@ class TaskRuleError(ConflictError):
     """A business rule was broken; main.py turns it into a 409 response."""
 
 
+# Shared with group tasks, so personal and group tasks follow the same rule.
+def check_due_date(due_date: date | None) -> None:
+    if due_date and due_date < date.today():
+        raise TaskRuleError("Due date cannot be in the past")
+
+
 # Business rules only: no HTTP and no database calls, everything stored goes through the repository.
 class TaskService:
     def __init__(self, repo: TaskRepository) -> None:
@@ -25,7 +31,7 @@ class TaskService:
         return self.repo.get(task_id)
 
     def create_task(self, data: TaskCreate) -> Task:
-        self._check_due_date(data.due_date)
+        check_due_date(data.due_date)
         return self.repo.create(Task.model_validate(data, update={"owner_id": self.repo.owner_id}))
 
     def update_task(self, task: Task, data: TaskUpdate) -> Task:
@@ -34,13 +40,9 @@ class TaskService:
             return task
         # Checked only when the date is sent, so completing an overdue task still works.
         if "due_date" in changes:
-            self._check_due_date(changes["due_date"])
+            check_due_date(changes["due_date"])
         changes["updated_at"] = utc_now()
         return self.repo.update(task, changes)
 
     def delete_task(self, task: Task) -> None:
         self.repo.delete(task)
-
-    def _check_due_date(self, due_date: date | None) -> None:
-        if due_date and due_date < date.today():
-            raise TaskRuleError("Due date cannot be in the past")
