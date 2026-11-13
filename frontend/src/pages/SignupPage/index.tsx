@@ -1,7 +1,8 @@
 // Signup form; a new account is logged in right away.
-import { Alert, Button, Form, Input, Typography } from "antd"
+import { Button, Form, Input } from "antd"
 import { useState } from "react"
 import { Link, Navigate } from "react-router"
+import { AuthCard } from "../../components/AuthCard"
 import { useAuth } from "../../context/AuthContext"
 import type { SignupInput } from "../../types/auth"
 import { emailRules, nameRules, newPasswordRules } from "../../utils/authForm"
@@ -28,18 +29,25 @@ export function SignupPage() {
   }
 
   return (
-    <>
-      <Typography.Title level={2}>Sign up</Typography.Title>
-      {error && <Alert type="error" title={error} showIcon style={{ marginBottom: 16 }} />}
-      <Form layout="vertical" onFinish={handleFinish}>
+    <AuthCard
+      title="Sign up"
+      subtitle="Create an account to keep your own tasks and join groups."
+      error={error}
+      footer={
+        <>
+          Already have an account? <Link to="/login">Log in</Link>
+        </>
+      }
+    >
+      <Form layout="vertical" onFinish={handleFinish} requiredMark={false}>
         <Form.Item label="Name" name="name" rules={nameRules}>
-          <Input autoComplete="name" />
+          <Input size="large" autoComplete="name" />
         </Form.Item>
         <Form.Item label="Email" name="email" rules={emailRules}>
-          <Input autoComplete="email" />
+          <Input size="large" autoComplete="email" />
         </Form.Item>
-        <Form.Item label="Password" name="password" rules={newPasswordRules}>
-          <Input.Password autoComplete="new-password" />
+        <Form.Item label="Password" name="password" rules={newPasswordRules} extra="At least 8 characters.">
+          <Input.Password size="large" autoComplete="new-password" />
         </Form.Item>
         <Form.Item
           label="Confirm password"
@@ -53,15 +61,12 @@ export function SignupPage() {
             }),
           ]}
         >
-          <Input.Password autoComplete="new-password" />
+          <Input.Password size="large" autoComplete="new-password" />
         </Form.Item>
-        <Button type="primary" htmlType="submit" loading={submitting}>
+        <Button type="primary" htmlType="submit" size="large" block loading={submitting}>
           Create account
         </Button>
       </Form>
-      <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>
-        Already have an account? <Link to="/login">Log in</Link>
-      </Typography.Paragraph>
-    </>
+    </AuthCard>
   )
 }

@@ -1,6 +1,6 @@
-// Add-task form; passes the validated values up to the page through onAdd.
+// Add-task form in a card; passes the validated values up to the page through onAdd.
 import { PlusOutlined } from "@ant-design/icons"
-import { Button, DatePicker, Form, Input } from "antd"
+import { Button, Card, DatePicker, Flex, Form, Input } from "antd"
 import { descriptionRules, titleRules, toTaskInput, type TaskFormValues } from "../utils/taskForm"
 import type { TaskInput } from "../types/task"
 
@@ -16,19 +16,23 @@ export function TaskForm({ onAdd }: Props) {
   }
 
   return (
-    <Form form={form} layout="vertical" onFinish={handleFinish} style={{ marginBottom: 24 }}>
-      <Form.Item name="title" rules={titleRules} style={{ marginBottom: 12 }}>
-        <Input placeholder="Task title" aria-label="Task title" />
-      </Form.Item>
-      <Form.Item name="description" rules={descriptionRules} style={{ marginBottom: 12 }}>
-        <Input.TextArea rows={2} placeholder="Description (optional)" aria-label="Task description" />
-      </Form.Item>
-      <Form.Item name="due_date" style={{ marginBottom: 12 }}>
-        <DatePicker format="YYYY-MM-DD" placeholder="Due date (optional)" style={{ width: "100%" }} />
-      </Form.Item>
-      <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>
-        Add task
-      </Button>
-    </Form>
+    <Card title="Add a task" size="small" style={{ marginBottom: 24 }}>
+      <Form form={form} layout="vertical" onFinish={handleFinish}>
+        <Form.Item name="title" rules={titleRules} style={{ marginBottom: 12 }}>
+          <Input placeholder="What needs to be done?" aria-label="Task title" />
+        </Form.Item>
+        <Form.Item name="description" rules={descriptionRules} style={{ marginBottom: 12 }}>
+          <Input.TextArea rows={2} placeholder="Description (optional)" aria-label="Task description" />
+        </Form.Item>
+        <Flex gap={12} wrap>
+          <Form.Item name="due_date" style={{ marginBottom: 0 }}>
+            <DatePicker format="YYYY-MM-DD" placeholder="Due date (optional)" aria-label="Task due date" style={{ width: 200 }} />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>
+            Add task
+          </Button>
+        </Flex>
+      </Form>
+    </Card>
   )
 }

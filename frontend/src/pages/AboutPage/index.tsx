@@ -1,26 +1,44 @@
 // Static page that describes the project.
-import { Typography } from "antd"
+import { Card, Typography } from "antd"
+import { PageHeader } from "../../components/PageHeader"
 
 export function AboutPage() {
   return (
     <>
-      <Typography.Title level={2}>About Smarter Todo</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Smarter Todo is a task manager built as a FastAPI REST API with a React frontend. This MVP covers task create, list, view, update, complete and delete.
-      </Typography.Paragraph>
+      <PageHeader title="About Smarter Todo" subtitle="A task manager for individuals and teams." />
 
-      <Typography.Title level={4}>Tech stack</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        React 19 · TypeScript · Vite · Ant Design · React Router · FastAPI · SQLModel · SQLite (local) / PostgreSQL (production)
-      </Typography.Paragraph>
+      <Card style={{ marginBottom: 16 }}>
+        <Typography.Title level={4} style={{ marginTop: 0 }}>
+          What it does
+        </Typography.Title>
+        <Typography.Paragraph type="secondary">
+          Keep a private task list with due dates, share task lists with a team in groups and assign tasks to members. Admins get a dashboard with
+          usage stats, user management and an activity log.
+        </Typography.Paragraph>
+      </Card>
 
-      <Typography.Title level={4}>Backend layers</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Controller (routes) → Service (business rules) → Repository (database) → Model (table), with schemas for request and response shapes.
-      </Typography.Paragraph>
+      <Card style={{ marginBottom: 16 }}>
+        <Typography.Title level={4} style={{ marginTop: 0 }}>
+          Tech stack
+        </Typography.Title>
+        <Typography.Paragraph type="secondary">
+          React 19 · TypeScript · Vite · Ant Design · React Router · FastAPI · SQLModel · SQLite (local) / PostgreSQL on Supabase (production)
+        </Typography.Paragraph>
+        <Typography.Title level={4}>Backend layers</Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          Router → Service (business rules) → Repository (database) → Model (table), with schemas for request and response shapes and an RBAC
+          module for permissions.
+        </Typography.Paragraph>
+      </Card>
 
-      <Typography.Title level={4}>Built by</Typography.Title>
-      <Typography.Paragraph type="secondary">SayefReyadh</Typography.Paragraph>
+      <Card>
+        <Typography.Title level={4} style={{ marginTop: 0 }}>
+          Built by
+        </Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          SayefReyadh
+        </Typography.Paragraph>
+      </Card>
     </>
   )
 }

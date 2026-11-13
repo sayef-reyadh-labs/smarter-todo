@@ -1,6 +1,6 @@
-// Shows tasks with complete, view and delete actions; every change goes up through callbacks.
+// Shows tasks as cards with complete, view and delete actions; every change goes up through callbacks.
 import { DeleteOutlined, EyeOutlined } from "@ant-design/icons"
-import { Button, Checkbox, Empty, List, Popconfirm, Space, Tag, Typography } from "antd"
+import { Button, Card, Checkbox, Empty, Flex, Popconfirm, Skeleton, Space, Tag, Typography } from "antd"
 import dayjs from "dayjs"
 import type { Task } from "../types/task"
 
@@ -8,6 +8,7 @@ type Props = {
   tasks: Task[]
   loading: boolean
   hasMore: boolean
+  filtered: boolean
   onToggle: (task: Task) => void
   onDelete: (id: string) => void
   onView: (id: string) => void
@@ -17,48 +18,56 @@ type Props = {
 const isOverdue = (task: Task) =>
   !task.is_completed && task.due_date !== null && dayjs(task.due_date).isBefore(dayjs(), "day")
 
-export function TaskList({ tasks, loading, hasMore, onToggle, onDelete, onView, onLoadMore }: Props) {
+export function TaskList({ tasks, loading, hasMore, filtered, onToggle, onDelete, onView, onLoadMore }: Props) {
+  if (loading && tasks.length === 0) return <Skeleton active paragraph={{ rows: 4 }} />
+
+  if (tasks.length === 0) {
+    return (
+      <Empty
+        style={{ padding: "32px 0" }}
+        description={filtered ? "No tasks match this filter." : "No tasks yet. Add your first one above."}
+      />
+    )
+  }
+
   return (
-    <List
-      loading={loading}
-      dataSource={tasks}
-      locale={{ emptyText: <Empty description="No tasks yet — add one above." /> }}
-      loadMore={
-        hasMore && (
-          <div style={{ textAlign: "center", marginTop: 12 }}>
-            <Button onClick={onLoadMore}>Load more</Button>
-          </div>
-        )
-      }
-      renderItem={(task) => (
-        <List.Item
-          actions={[
-            <Button key="view" type="text" icon={<EyeOutlined />} aria-label="View task" onClick={() => onView(task.id)} />,
-            <Popconfirm
-              key="delete"
-              title="Delete this task?"
-              okText="Delete"
-              okButtonProps={{ danger: true }}
-              onConfirm={() => onDelete(task.id)}
-            >
-              <Button type="text" danger icon={<DeleteOutlined />} aria-label="Delete task" />
-            </Popconfirm>,
-          ]}
-        >
-          <List.Item.Meta
-            avatar={<Checkbox checked={task.is_completed} onChange={() => onToggle(task)} />}
-            title={
-              <Space wrap>
-                <Typography.Text delete={task.is_completed} type={task.is_completed ? "secondary" : undefined}>
+    <Flex vertical gap={8}>
+      {tasks.map((task) => (
+        <Card key={task.id} size="small" styles={{ body: { padding: "12px 16px" } }}>
+          <Flex align="flex-start" gap={12}>
+            <Checkbox
+              checked={task.is_completed}
+              onChange={() => onToggle(task)}
+              aria-label={`${task.is_completed ? "Reopen" : "Complete"} ${task.title}`}
+              style={{ marginTop: 2 }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Space wrap size={8}>
+                <Typography.Text strong delete={task.is_completed} type={task.is_completed ? "secondary" : undefined}>
                   {task.title}
                 </Typography.Text>
-                {task.due_date && <Tag color={isOverdue(task) ? "red" : "blue"}>{task.due_date}</Tag>}
+                {task.due_date && <Tag color={isOverdue(task) ? "red" : "blue"}>{isOverdue(task) ? `Overdue · ${task.due_date}` : task.due_date}</Tag>}
               </Space>
-            }
-            description={task.description}
-          />
-        </List.Item>
+              {task.description && (
+                <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ margin: "4px 0 0" }}>
+                  {task.description}
+                </Typography.Paragraph>
+              )}
+            </div>
+            <Space size={4}>
+              <Button type="text" icon={<EyeOutlined />} aria-label={`View ${task.title}`} onClick={() => onView(task.id)} />
+              <Popconfirm title="Delete this task?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => onDelete(task.id)}>
+                <Button type="text" danger icon={<DeleteOutlined />} aria-label={`Delete ${task.title}`} />
+              </Popconfirm>
+            </Space>
+          </Flex>
+        </Card>
+      ))}
+      {hasMore && (
+        <div style={{ textAlign: "center", marginTop: 8 }}>
+          <Button onClick={onLoadMore}>Load more</Button>
+        </div>
       )}
-    />
+    </Flex>
   )
 }

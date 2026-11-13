@@ -20,7 +20,7 @@ export function GroupMembers({ members, isOwner, onAdd, onRemove }: Props) {
 
   return (
     <>
-      <Typography.Title level={4}>Members ({members.length})</Typography.Title>
+      <Typography.Title level={4} style={{ marginTop: 0 }}>Members ({members.length})</Typography.Title>
       {isOwner && (
         <Form form={form} layout="inline" onFinish={handleFinish} style={{ marginBottom: 16 }}>
           <Form.Item name="email" rules={emailRules} style={{ flex: 1 }}>

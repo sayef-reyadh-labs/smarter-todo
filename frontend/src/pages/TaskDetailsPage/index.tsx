@@ -1,7 +1,8 @@
 // View, edit and delete one task at /tasks/:taskId.
-import { Alert, App as AntApp, Button, Checkbox, DatePicker, Descriptions, Flex, Form, Input, Popconfirm, Result, Spin, Tag, Typography } from "antd"
+import { Alert, App as AntApp, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, Input, Popconfirm, Result, Skeleton, Tag } from "antd"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
+import { PageHeader } from "../../components/PageHeader"
 import { apiService } from "../../services/api"
 import type { Task } from "../../types/task"
 import { descriptionRules, titleRules, toFormValues, toTaskInput, type TaskFormValues } from "../../utils/taskForm"
@@ -55,7 +56,7 @@ export function TaskDetailsPage() {
     }
   }
 
-  if (loading) return <Spin style={{ display: "block", marginTop: 64 }} />
+  if (loading) return <Skeleton active paragraph={{ rows: 5 }} />
 
   if (!task) {
     return (
@@ -70,12 +71,10 @@ export function TaskDetailsPage() {
 
   return (
     <>
-      <Button type="link" onClick={() => navigate("/")} style={{ paddingLeft: 0 }}>
-        ← Back to tasks
-      </Button>
-      <Typography.Title level={2}>{isEditing ? "Edit task" : "Task details"}</Typography.Title>
+      <PageHeader back={{ to: "/", label: "Back to tasks" }} title={isEditing ? "Edit task" : "Task details"} />
       {error && <Alert type="error" title={error} showIcon style={{ marginBottom: 16 }} />}
 
+      <Card>
       {isEditing ? (
         <Form form={form} layout="vertical" initialValues={{ ...toFormValues(task), is_completed: task.is_completed }} onFinish={handleSave}>
           <Form.Item name="title" label="Title" rules={titleRules}>
@@ -100,6 +99,7 @@ export function TaskDetailsPage() {
           <Descriptions
             bordered
             column={1}
+            size="small"
             items={[
               { key: "title", label: "Title", children: task.title },
               { key: "description", label: "Description", children: task.description || "(No description)" },
@@ -117,6 +117,7 @@ export function TaskDetailsPage() {
           </Flex>
         </>
       )}
+      </Card>
     </>
   )
 }
