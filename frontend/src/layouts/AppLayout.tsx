@@ -1,14 +1,25 @@
-// Page frame: header with navigation, the user menu and the dark-mode switch, then the current page through <Outlet />.
-import { Button, Layout, Menu, Switch, Typography } from "antd"
+// Page frame: sticky header with navigation, account menu and theme switch, the current page through <Outlet />, and a footer.
+import { CheckSquareOutlined, LogoutOutlined, MoonOutlined, SunOutlined, UserOutlined } from "@ant-design/icons"
+import { Avatar, Button, Dropdown, Layout, Menu, theme } from "antd"
 import { Link, Outlet, useLocation, useNavigate } from "react-router"
 import { useAuth } from "../context/AuthContext"
 import { useTheme } from "../context/ThemeContext"
+
+// Wider pages (the admin tables) get more room than forms and lists.
+const widthFor = (pathname: string) => (pathname === "/admin" ? 1200 : 880)
+
+const activeKey = (pathname: string) => {
+  if (pathname.startsWith("/tasks")) return "/"
+  if (pathname.startsWith("/groups")) return "/groups"
+  return pathname
+}
 
 export function AppLayout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { darkMode, toggleDark } = useTheme()
   const { user, logout } = useAuth()
+  const { token } = theme.useToken()
 
   const handleLogout = async () => {
     await logout()
@@ -19,7 +30,6 @@ export function AppLayout() {
     ? [
         { key: "/", label: <Link to="/">Home</Link> },
         { key: "/groups", label: <Link to="/groups">Groups</Link> },
-        { key: "/profile", label: <Link to="/profile">Profile</Link> },
         ...(user.role === "admin" ? [{ key: "/admin", label: <Link to="/admin">Admin</Link> }] : []),
         { key: "/about", label: <Link to="/about">About</Link> },
       ]
@@ -31,30 +41,63 @@ export function AppLayout() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Layout.Header style={{ display: "flex", alignItems: "center", gap: 24 }}>
-        <Typography.Text strong style={{ fontSize: 18, color: "white" }}>
-          Smarter Todo
-        </Typography.Text>
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+      <Layout.Header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "0 24px",
+          background: token.colorBgContainer,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Link to="/" className="brand" style={{ color: token.colorText }}>
+          <CheckSquareOutlined style={{ color: token.colorPrimary }} /> Smarter Todo
+        </Link>
         <Menu
-          theme="dark"
           mode="horizontal"
-          selectedKeys={[pathname.startsWith("/tasks") ? "/" : pathname.startsWith("/groups") ? "/groups" : pathname]}
-          style={{ flex: 1, minWidth: 0 }}
+          selectedKeys={[activeKey(pathname)]}
           items={items}
+          style={{ flex: 1, minWidth: 0, borderBottom: "none", background: "transparent" }}
+        />
+        <Button
+          type="text"
+          shape="circle"
+          icon={darkMode ? <SunOutlined /> : <MoonOutlined />}
+          onClick={toggleDark}
+          aria-label={darkMode ? "Switch to light theme" : "Switch to dark theme"}
         />
         {user && (
-          <>
-            <Typography.Text style={{ color: "white" }}>{user.name}</Typography.Text>
-            <Button size="small" onClick={handleLogout}>
-              Log out
+          <Dropdown
+            trigger={["click"]}
+            placement="bottomRight"
+            menu={{
+              items: [
+                { key: "profile", label: "Profile", icon: <UserOutlined />, onClick: () => navigate("/profile") },
+                { type: "divider" },
+                { key: "logout", label: "Log out", icon: <LogoutOutlined />, danger: true, onClick: handleLogout },
+              ],
+            }}
+          >
+            <Button type="text" aria-label="Account menu">
+              <Avatar size="small" style={{ background: token.colorPrimary }}>
+                {user.name.charAt(0).toUpperCase()}
+              </Avatar>
+              <span className="hide-on-mobile">{user.name}</span>
             </Button>
-          </>
+          </Dropdown>
         )}
-        <Switch checked={darkMode} onChange={toggleDark} checkedChildren="Dark" unCheckedChildren="Light" />
       </Layout.Header>
-      <Layout.Content style={{ maxWidth: pathname === "/admin" ? 1100 : 720, width: "100%", margin: "0 auto", padding: "32px 16px" }}>
+      <Layout.Content id="main" style={{ maxWidth: widthFor(pathname), width: "100%", margin: "0 auto", padding: "32px 16px 48px" }}>
         <Outlet />
       </Layout.Content>
+      <Layout.Footer style={{ textAlign: "center", color: token.colorTextSecondary }}>Smarter Todo · built by SayefReyadh</Layout.Footer>
     </Layout>
   )
 }

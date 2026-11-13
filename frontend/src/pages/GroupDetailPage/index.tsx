@@ -1,9 +1,10 @@
 // One group at /groups/:groupId: its members and its tasks; the owner can rename or delete it, a member can leave.
-import { Alert, App as AntApp, Button, Divider, Flex, Popconfirm, Spin, Tag, Typography } from "antd"
+import { Alert, App as AntApp, Button, Card, Popconfirm, Skeleton, Space, Tag } from "antd"
 import { useEffect, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { GroupMembers } from "../../components/GroupMembers"
 import { GroupTasks } from "../../components/GroupTasks"
+import { PageHeader } from "../../components/PageHeader"
 import { useAuth } from "../../context/AuthContext"
 import { apiService } from "../../services/api"
 import type { Group, GroupTask, Member } from "../../types/group"
@@ -58,7 +59,7 @@ export function GroupDetailPage() {
     }
   }
 
-  if (loading) return <Spin size="large" style={{ display: "block", margin: "64px auto" }} />
+  if (loading) return <Skeleton active paragraph={{ rows: 6 }} />
   if (!group || !user) {
     return (
       <>
@@ -82,38 +83,38 @@ export function GroupDetailPage() {
 
   return (
     <>
-      <Link to="/groups">Back to groups</Link>
-      <Flex justify="space-between" align="center" style={{ marginTop: 8 }}>
-        <Typography.Title
-          level={2}
-          style={{ margin: 0 }}
-          editable={isOwner ? { onChange: (name) => name.trim() && name !== group.name && run(() => apiService.renameGroup(group.id, name.trim()), "Group renamed") } : false}
-        >
-          {group.name}
-        </Typography.Title>
-        <Flex gap={8} align="center">
-          <Tag color={isOwner ? "gold" : undefined}>{group.my_role}</Tag>
-          <Popconfirm
-            title={isOwner ? "Delete this group and all its tasks?" : "Leave this group?"}
-            okText={isOwner ? "Delete" : "Leave"}
-            okButtonProps={{ danger: true }}
-            onConfirm={leaveOrDelete}
-          >
-            <Button danger>{isOwner ? "Delete group" : "Leave group"}</Button>
-          </Popconfirm>
-        </Flex>
-      </Flex>
-
-      <Divider />
-      <GroupMembers
-        members={members}
-        isOwner={isOwner}
-        onAdd={(email) => run(() => apiService.addMember(group.id, email), "Member added")}
-        onRemove={(member) => run(() => apiService.removeMember(group.id, member.user_id), `${member.name} removed`)}
+      <PageHeader
+        back={{ to: "/groups", label: "Back to groups" }}
+        title={group.name}
+        onTitleChange={
+          isOwner ? (name) => name.trim() && name !== group.name && run(() => apiService.renameGroup(group.id, name.trim()), "Group renamed") : undefined
+        }
+        extra={
+          <Space>
+            <Tag color={isOwner ? "gold" : undefined}>{group.my_role}</Tag>
+            <Popconfirm
+              title={isOwner ? "Delete this group and all its tasks?" : "Leave this group?"}
+              okText={isOwner ? "Delete" : "Leave"}
+              okButtonProps={{ danger: true }}
+              onConfirm={leaveOrDelete}
+            >
+              <Button danger>{isOwner ? "Delete group" : "Leave group"}</Button>
+            </Popconfirm>
+          </Space>
+        }
       />
 
-      <Divider />
-      <GroupTasks
+      <Card style={{ marginBottom: 24 }}>
+        <GroupMembers
+          members={members}
+          isOwner={isOwner}
+          onAdd={(email) => run(() => apiService.addMember(group.id, email), "Member added")}
+          onRemove={(member) => run(() => apiService.removeMember(group.id, member.user_id), `${member.name} removed`)}
+        />
+      </Card>
+
+      <Card>
+        <GroupTasks
         tasks={tasks}
         members={members}
         currentUserId={user.id}
@@ -124,6 +125,7 @@ export function GroupDetailPage() {
         onAssign={(task, assigneeId) => run(() => apiService.updateGroupTask(group.id, task.id, { assignee_id: assigneeId }), "Assignee updated")}
         onDelete={(task) => run(() => apiService.deleteGroupTask(group.id, task.id), "Task deleted")}
       />
+      </Card>
     </>
   )
 }

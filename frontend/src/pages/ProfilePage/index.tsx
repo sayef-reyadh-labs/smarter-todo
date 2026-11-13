@@ -1,7 +1,8 @@
 // Profile page: change your name, or change your password (which logs you out everywhere).
-import { App as AntApp, Button, Divider, Form, Input, Typography } from "antd"
+import { App as AntApp, Button, Card, Form, Input, Tag } from "antd"
 import { useState } from "react"
 import { useNavigate } from "react-router"
+import { PageHeader } from "../../components/PageHeader"
 import { useAuth } from "../../context/AuthContext"
 import { apiService } from "../../services/api"
 import { nameRules, newPasswordRules } from "../../utils/authForm"
@@ -47,48 +48,50 @@ export function ProfilePage() {
   }
 
   return (
-    <>
-      <Typography.Title level={2}>Profile</Typography.Title>
-      <Form layout="vertical" initialValues={{ email: user.email, name: user.name }} onFinish={saveName}>
-        <Form.Item label="Email" name="email">
-          <Input disabled />
-        </Form.Item>
-        <Form.Item label="Name" name="name" rules={nameRules}>
-          <Input autoComplete="name" />
-        </Form.Item>
-        <Button type="primary" htmlType="submit" loading={savingName}>
-          Save name
-        </Button>
-      </Form>
+    <div style={{ maxWidth: 560, margin: "0 auto" }}>
+      <PageHeader title="Profile" subtitle="Your account details." extra={<Tag color={user.role === "admin" ? "gold" : undefined}>{user.role}</Tag>} />
 
-      <Divider />
+      <Card title="Account" style={{ marginBottom: 24 }}>
+        <Form layout="vertical" initialValues={{ email: user.email, name: user.name }} onFinish={saveName}>
+          <Form.Item label="Email" name="email">
+            <Input disabled />
+          </Form.Item>
+          <Form.Item label="Name" name="name" rules={nameRules}>
+            <Input autoComplete="name" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={savingName}>
+            Save name
+          </Button>
+        </Form>
+      </Card>
 
-      <Typography.Title level={4}>Change password</Typography.Title>
-      <Form layout="vertical" onFinish={changePassword}>
-        <Form.Item label="Current password" name="current_password" rules={[{ required: true, message: "Enter your current password" }]}>
-          <Input.Password autoComplete="current-password" />
-        </Form.Item>
-        <Form.Item label="New password" name="new_password" rules={newPasswordRules}>
-          <Input.Password autoComplete="new-password" />
-        </Form.Item>
-        <Form.Item
-          label="Confirm new password"
-          name="confirm"
-          dependencies={["new_password"]}
-          rules={[
-            { required: true, message: "Confirm your new password" },
-            ({ getFieldValue }) => ({
-              validator: (_, value) =>
-                !value || getFieldValue("new_password") === value ? Promise.resolve() : Promise.reject(new Error("Passwords do not match")),
-            }),
-          ]}
-        >
-          <Input.Password autoComplete="new-password" />
-        </Form.Item>
-        <Button type="primary" htmlType="submit" loading={savingPassword}>
-          Change password
-        </Button>
-      </Form>
-    </>
+      <Card title="Change password">
+        <Form layout="vertical" onFinish={changePassword}>
+          <Form.Item label="Current password" name="current_password" rules={[{ required: true, message: "Enter your current password" }]}>
+            <Input.Password autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item label="New password" name="new_password" rules={newPasswordRules} extra="At least 8 characters. You will be logged out on every device.">
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            label="Confirm new password"
+            name="confirm"
+            dependencies={["new_password"]}
+            rules={[
+              { required: true, message: "Confirm your new password" },
+              ({ getFieldValue }) => ({
+                validator: (_, value) =>
+                  !value || getFieldValue("new_password") === value ? Promise.resolve() : Promise.reject(new Error("Passwords do not match")),
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={savingPassword}>
+            Change password
+          </Button>
+        </Form>
+      </Card>
+    </div>
   )
 }

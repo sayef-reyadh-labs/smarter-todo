@@ -1,7 +1,8 @@
 // Task list page: loads tasks from the API, owns the list state and passes it to the components below.
-import { Alert, App as AntApp, Switch, Typography } from "antd"
+import { Alert, App as AntApp, Segmented } from "antd"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
+import { PageHeader } from "../../components/PageHeader"
 import { TaskForm } from "../../components/TaskForm"
 import { TaskList } from "../../components/TaskList"
 import { TaskStats } from "../../components/TaskStats"
@@ -9,6 +10,8 @@ import { PAGE_SIZE, apiService } from "../../services/api"
 import type { Task, TaskInput, TaskPatch } from "../../types/task"
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong")
+
+type Filter = "all" | "open" | "done"
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -19,7 +22,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [error, setError] = useState("")
-  const [showDone, setShowDone] = useState(true)
+  const [filter, setFilter] = useState<Filter>("all")
 
   const hasMore = tasks.length < total
 
@@ -96,13 +99,12 @@ export function HomePage() {
     }
   }
 
-  // Derived value: no extra state needed to hide completed tasks.
-  const visibleTasks = showDone ? tasks : tasks.filter((t) => !t.is_completed)
+  // Derived value: no extra state needed to filter the list.
+  const visibleTasks = tasks.filter((t) => filter === "all" || (filter === "done") === t.is_completed)
 
   return (
     <>
-      <Typography.Title level={2}>Smarter Todo</Typography.Title>
-      <Typography.Paragraph type="secondary">Keep your tasks simple and focused.</Typography.Paragraph>
+      <PageHeader title="My tasks" subtitle="Keep your tasks simple and focused." />
 
       {error && <Alert type="error" title={error} showIcon style={{ marginBottom: 16 }} />}
 
@@ -111,11 +113,17 @@ export function HomePage() {
       {tasks.length > 0 && (
         <>
           <TaskStats tasks={tasks} onClearCompleted={clearCompleted} />
-          <Switch size="small" checked={showDone} onChange={setShowDone} />{" "}
-          <Typography.Text type="secondary">Show completed</Typography.Text>
-          <Typography.Paragraph type="secondary" style={{ margin: "8px 0 0" }}>
-            Showing {tasks.length} of {total}
-          </Typography.Paragraph>
+          <Segmented
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { label: "All", value: "all" },
+              { label: "Open", value: "open" },
+              { label: "Done", value: "done" },
+            ]}
+            aria-label="Filter tasks"
+            style={{ marginBottom: 16 }}
+          />
         </>
       )}
 
@@ -123,6 +131,7 @@ export function HomePage() {
         tasks={visibleTasks}
         loading={loading}
         hasMore={hasMore}
+        filtered={filter !== "all"}
         onToggle={toggleTask}
         onDelete={deleteTask}
         onView={(id) => navigate(`/tasks/${id}`)}

@@ -62,7 +62,7 @@ export function GroupTasks({ tasks, members, currentUserId, isOwner, onAdd, onTo
 
   return (
     <>
-      <Typography.Title level={4}>Tasks ({tasks.length})</Typography.Title>
+      <Typography.Title level={4} style={{ marginTop: 0 }}>Tasks ({tasks.length})</Typography.Title>
       <Form form={form} layout="vertical" onFinish={handleFinish} style={{ marginBottom: 16 }}>
         <Form.Item name="title" rules={titleRules} style={{ marginBottom: 12 }}>
           <Input placeholder="New group task" aria-label="Group task title" />
@@ -72,7 +72,7 @@ export function GroupTasks({ tasks, members, currentUserId, isOwner, onAdd, onTo
         </Form.Item>
         <Flex gap={8} wrap>
           <Form.Item name="due_date" style={{ marginBottom: 0 }}>
-            <DatePicker format="YYYY-MM-DD" placeholder="Due date (optional)" aria-label="Group task due date" />
+            <DatePicker format="YYYY-MM-DD" placeholder="Due date (optional)" aria-label="Group task due date" style={{ width: 200 }} />
           </Form.Item>
           <Form.Item name="assignee" style={{ marginBottom: 0 }}>
             <Select allowClear placeholder="Assign to" options={assigneeOptions} style={{ width: 160 }} aria-label="Assignee" />

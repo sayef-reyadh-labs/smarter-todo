@@ -25,6 +25,7 @@ export function AdminUsersTable({ users, currentUserId, page, pageSize, onPageCh
           size="small"
           value={role}
           disabled={user.id === currentUserId}
+          style={{ minWidth: 110 }}
           onChange={(value) => onRoleChange(user, value as "user" | "admin")}
           options={[
             { value: "user", label: "user" },

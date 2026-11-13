@@ -1,10 +1,11 @@
 // Admin dashboard at /admin: stats, user management (role, ban, unban) and removing tasks.
-import { Alert, App as AntApp, Input, Modal, Typography } from "antd"
+import { Alert, App as AntApp, Input, Modal, Tabs, Typography } from "antd"
 import { useEffect, useState } from "react"
 import { AdminActivityTable } from "../../components/AdminActivityTable"
 import { AdminStatsCards } from "../../components/AdminStatsCards"
 import { AdminTasksTable } from "../../components/AdminTasksTable"
 import { AdminUsersTable } from "../../components/AdminUsersTable"
+import { PageHeader } from "../../components/PageHeader"
 import { useAuth } from "../../context/AuthContext"
 import { apiService } from "../../services/api"
 import type { AdminActivity, AdminStats, AdminTask, AdminUser, Page } from "../../types/admin"
@@ -112,52 +113,58 @@ export function AdminPage() {
 
   return (
     <>
-      <Typography.Title level={2}>Admin dashboard</Typography.Title>
+      <PageHeader title="Admin dashboard" subtitle="Usage, users, tasks and what people did." />
       {error && <Alert type="error" title={error} showIcon style={{ marginBottom: 16 }} />}
       {stats && <AdminStatsCards stats={stats} />}
 
-      <Typography.Title level={4} style={{ marginTop: 32 }}>
-        Users
-      </Typography.Title>
-      {users && (
-        <AdminUsersTable
-          users={users}
-          currentUserId={me.id}
-          page={userPage}
-          pageSize={PAGE_SIZE}
-          onPageChange={changeUserPage}
-          onRoleChange={(user, role) => run(() => apiService.changeUserRole(user.id, role), `${user.email} is now ${role}`)}
-          onBan={setBanTarget}
-          onUnban={(user) => run(() => apiService.unbanUser(user.id), `${user.email} unbanned`)}
-        />
-      )}
-
-      <Typography.Title level={4} style={{ marginTop: 32 }}>
-        Tasks
-      </Typography.Title>
-      {tasks && (
-        <AdminTasksTable
-          tasks={tasks}
-          page={taskPage}
-          pageSize={PAGE_SIZE}
-          onPageChange={changeTaskPage}
-          onDelete={(task) => run(() => apiService.deleteAdminTask(task.id), "Task deleted")}
-        />
-      )}
-
-      <Typography.Title level={4} style={{ marginTop: 32 }}>
-        Activity
-      </Typography.Title>
-      {activity && (
-        <AdminActivityTable
-          activity={activity}
-          page={activityPage}
-          pageSize={PAGE_SIZE}
-          action={activityAction}
-          onPageChange={changeActivityPage}
-          onActionChange={changeActivityAction}
-        />
-      )}
+      <Tabs
+        style={{ marginTop: 24 }}
+        items={[
+          {
+            key: "users",
+            label: `Users${users ? ` (${users.total})` : ""}`,
+            children: users && (
+              <AdminUsersTable
+                users={users}
+                currentUserId={me.id}
+                page={userPage}
+                pageSize={PAGE_SIZE}
+                onPageChange={changeUserPage}
+                onRoleChange={(user, role) => run(() => apiService.changeUserRole(user.id, role), `${user.email} is now ${role}`)}
+                onBan={setBanTarget}
+                onUnban={(user) => run(() => apiService.unbanUser(user.id), `${user.email} unbanned`)}
+              />
+            ),
+          },
+          {
+            key: "tasks",
+            label: `Tasks${tasks ? ` (${tasks.total})` : ""}`,
+            children: tasks && (
+              <AdminTasksTable
+                tasks={tasks}
+                page={taskPage}
+                pageSize={PAGE_SIZE}
+                onPageChange={changeTaskPage}
+                onDelete={(task) => run(() => apiService.deleteAdminTask(task.id), "Task deleted")}
+              />
+            ),
+          },
+          {
+            key: "activity",
+            label: "Activity",
+            children: activity && (
+              <AdminActivityTable
+                activity={activity}
+                page={activityPage}
+                pageSize={PAGE_SIZE}
+                action={activityAction}
+                onPageChange={changeActivityPage}
+                onActionChange={changeActivityAction}
+              />
+            ),
+          },
+        ]}
+      />
 
       <Modal
         open={banTarget !== null}
