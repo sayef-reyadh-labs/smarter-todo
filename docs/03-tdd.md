@@ -113,8 +113,9 @@ backend/
       dependencies.py  # get_task_service (session -> repository -> service) and valid_task: resolves {task_id} to a Task or answers 404
     auth/              # /api/v1/auth/* (signup, login, refresh, logout): router, schemas, models (AppUser, RefreshToken), service, repository, dependencies (get_current_user)
     users/             # /api/v1/users/me (profile, change name, change password): router, schemas, service, dependencies
-    admin/             # /api/v1/admin/* (require_admin): router, schemas, service, repository (queries across all users and tasks), dependencies
-    groups/            # /api/v1/groups/* (members and group tasks): router, schemas, models (TaskGroup, GroupMember), service, repository, dependencies (get_membership, require_group_owner)
+    admin/             # /api/v1/admin/* (require_permission(ADMIN_*)): router, schemas, service, repository (queries across all users and tasks), dependencies
+    rbac/              # roles, permissions, policy engine, permission matrix (policies.py) and require_permission; see section 10.3
+    groups/            # /api/v1/groups/* (members and group tasks): router, schemas, models (TaskGroup, GroupMember), service, repository, dependencies (get_membership, require_group_permission)
   alembic/             # migration scripts
   alembic.ini          # (Beta)
   requirements.txt
@@ -539,47 +540,50 @@ flowchart LR
 - Wrong password: `failed_login_count += 1`. At 5, set `locked_until = now + 15 min` and reset the count. While `locked_until > now`, login returns `429`. A successful login resets the count. An unknown email never counts, so a stranger cannot lock someone else out by guessing emails.
 - Stored in the database (not in memory) because serverless functions do not share memory.
 
-### 10.3 Permission dependencies
+### 10.3 Permission checks (RBAC module)
 
-Permissions are FastAPI dependencies, so each route declares what it needs:
+All role checks go through `backend/app/rbac/`; routers and services never compare role strings.
 
-```python
-bearer = HTTPBearer()
-
-def get_current_user(creds=Depends(bearer), session: Session = Depends(get_session)) -> AppUser:
-    payload = decode_access_token(creds.credentials)   # 401 if invalid or expired
-    user = session.get(AppUser, uuid.UUID(payload["sub"]))
-    if user is None:
-        raise UnauthorizedError("Invalid or expired token")   # app/errors.py: main.py answers 401
-    if user.is_banned:
-        raise HTTPException(403, "Account banned")   # checked on every request, not only at login
-    return user
-
-def require_admin(user: AppUser = Depends(get_current_user)) -> AppUser:
-    if user.role != "admin":
-        raise ForbiddenError("Admin only")
-    return user
-
-def get_membership(group_id: uuid.UUID, user: CurrentUser, session: SessionDep) -> GroupMember:
-    member = GroupRepository(session).get_membership(group_id, user.id)
-    if member is None:
-        raise NotFoundError("Group not found")   # hide groups the user is not in
-    return member
-
-def require_group_owner(member: MemberDep) -> GroupMember:
-    if member.role != "owner":
-        raise ForbiddenError("Group owner only")
-    return member
+```
+app/rbac/
+  roles.py         # SystemRole (user, admin) and GroupRole (owner, member)
+  permissions.py   # Permission enum: every action that needs permission
+  policy.py        # Policy engine: grant(), grant_if_own(), require(rule), allows(), authorize()
+  policies.py      # the permission matrix: SYSTEM_POLICY and GROUP_POLICY (the only place that lists who may do what)
+  dependencies.py  # require_permission(Permission.X) for system-level routes
 ```
 
-| Route group | Dependency |
+`app/groups/dependencies.py` adds `require_group_permission(Permission.X)`, which runs after `get_membership`.
+
+```python
+# a route declares the permission it needs
+@router.patch("/{group_id}", response_model=GroupRead)
+def rename_group(member: Annotated[GroupMember, Depends(require_group_permission(Permission.GROUP_RENAME))], ...): ...
+
+# a service checks a rule that depends on the data (creator-or-owner, owner-or-self)
+subject = Subject(user.id, member.role, resource_owner_id=task.owner_id)
+GROUP_POLICY.authorize(subject, Permission.GROUP_TASKS_DELETE, "Only the task creator or the group owner can delete it")
+```
+
+`get_current_user` (401, banned users 403) and `get_membership` (404 for outsiders so a group's existence is not revealed) stay in the auth and groups dependencies. The role always comes from the database, so a role change applies on the next request.
+
+| Route group | Check |
 |---|---|
 | `/api/v1/tasks/*`, `/api/v1/users/me/*`, `POST/GET /api/v1/groups` | `get_current_user` |
-| `/api/v1/admin/*` | `require_admin` |
-| `GET /groups/{id}`, `/groups/{id}/members` (GET), `/groups/{id}/tasks/*` | `get_membership` |
-| `PATCH/DELETE /groups/{id}`, `POST /groups/{id}/members` | `require_group_owner` |
+| `/api/v1/admin/*` | `require_permission(ADMIN_*)` |
+| `/groups/{id}/*` | `get_membership`, then `require_group_permission(GROUP_*)` |
 
-Row-level rules that depend on the data are checked inside the route:
+**Extending it**
+
+| To add | Do this |
+|---|---|
+| A new permission | Add it to `Permission`, grant it to roles in `policies.py`, declare it on the route |
+| A new role | Add it to `SystemRole` or `GroupRole` and call `.grant(role, ...)` in `policies.py` |
+| "Only on your own resource" | `.grant_if_own(role, Permission.X)` and pass `resource_owner_id` in the `Subject` |
+| An extra condition (for example a time window or a banned resource) | `.require(Permission.X, lambda subject: ...)`; every rule must pass |
+| A new scope (for example teams) | Create another `Policy()` in `policies.py` and a dependency that calls it |
+
+Row-level rules that depend on the data are checked inside the service:
 - Personal tasks: query with `owner_id == user.id AND group_id IS NULL`; not found → `404`.
 - Delete group task: allowed if `task.owner_id == user.id` or membership role is `owner`.
 - Remove member: allowed if caller is owner, or `user_id == caller` (leave); owner leaving → `400`.

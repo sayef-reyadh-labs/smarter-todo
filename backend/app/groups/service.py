@@ -4,7 +4,7 @@ import uuid
 from app.auth.models import AppUser
 from app.auth.repository import UserRepository
 from app.clock import utc_now
-from app.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableError
+from app.errors import BadRequestError, ConflictError, NotFoundError, UnprocessableError
 from app.groups.models import GroupMember, TaskGroup
 from app.groups.repository import GroupRepository
 from app.groups.schemas import (
@@ -17,6 +17,7 @@ from app.groups.schemas import (
     MemberAdd,
     MemberRead,
 )
+from app.rbac import GROUP_POLICY, GroupRole, Permission, Subject
 from app.tasks.models import Task
 from app.tasks.service import check_due_date
 
@@ -33,7 +34,7 @@ class GroupService:
     # The creator becomes the owner.
     def create_group(self, user: AppUser, data: GroupCreate) -> GroupRead:
         group = self.repo.create_group(TaskGroup(name=data.name, created_by=user.id))
-        return _group_read(group, "owner")
+        return _group_read(group, GroupRole.OWNER.value)
 
     def list_groups(self, user: AppUser) -> list[GroupRead]:
         return [_group_read(group, role) for group, role in self.repo.list_for_user(user.id)]
@@ -60,17 +61,17 @@ class GroupService:
             raise NotFoundError("No user with that email")
         if self.repo.get_membership(group_id, user.id) is not None:
             raise ConflictError("That user is already a member")
-        member = self.repo.add_member(GroupMember(group_id=group_id, user_id=user.id, role="member"))
+        member = self.repo.add_member(GroupMember(group_id=group_id, user_id=user.id, role=GroupRole.MEMBER.value))
         return MemberRead(user_id=user.id, name=user.name, email=user.email, role=member.role, joined_at=member.joined_at)
 
     # The owner can remove anyone; a member can only remove themself (leave). The owner cannot leave.
     def remove_member(self, actor_member: GroupMember, actor: AppUser, user_id: uuid.UUID) -> None:
-        if actor_member.role != "owner" and user_id != actor.id:
-            raise ForbiddenError("Group owner only")
+        subject = Subject(actor.id, actor_member.role, resource_owner_id=user_id)
+        GROUP_POLICY.authorize(subject, Permission.GROUP_MEMBERS_REMOVE, "Group owner only")
         target = self.repo.get_membership(actor_member.group_id, user_id)
         if target is None:
             raise NotFoundError("Member not found")
-        if target.role == "owner":
+        if target.role == GroupRole.OWNER:
             raise BadRequestError("The owner cannot leave; delete the group instead")
         self.repo.remove_member(target)
 
@@ -121,8 +122,8 @@ class GroupTaskService:
 
     # Only the person who created the task, or the group owner, can delete it.
     def delete_task(self, task: Task) -> None:
-        if task.owner_id != self.user.id and self.member.role != "owner":
-            raise ForbiddenError("Only the task creator or the group owner can delete it")
+        subject = Subject(self.user.id, self.member.role, resource_owner_id=task.owner_id)
+        GROUP_POLICY.authorize(subject, Permission.GROUP_TASKS_DELETE, "Only the task creator or the group owner can delete it")
         self.repo.delete_task(task)
 
     def _check_assignee(self, assignee_id: uuid.UUID | None) -> None:

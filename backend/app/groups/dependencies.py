@@ -1,16 +1,17 @@
-# Per-request wiring for groups: membership checks (404 for outsiders, 403 for non-owners) and the services.
+# Per-request wiring for groups: membership checks (404 for outsiders), RBAC permission checks (403) and the services.
 import uuid
-from typing import Annotated
+from typing import Annotated, Callable
 
 from fastapi import Depends
 
 from app.auth.dependencies import CurrentUser
 from app.auth.repository import UserRepository
 from app.database import SessionDep
-from app.errors import ForbiddenError, NotFoundError
+from app.errors import NotFoundError
 from app.groups.models import GroupMember
 from app.groups.repository import GroupRepository
 from app.groups.service import GroupService, GroupTaskService
+from app.rbac import GROUP_POLICY, Permission, Subject
 
 
 # A group the caller is not in answers 404, so its existence is not revealed.
@@ -24,13 +25,13 @@ def get_membership(group_id: uuid.UUID, user: CurrentUser, session: SessionDep) 
 MemberDep = Annotated[GroupMember, Depends(get_membership)]
 
 
-def require_group_owner(member: MemberDep) -> GroupMember:
-    if member.role != "owner":
-        raise ForbiddenError("Group owner only")
-    return member
+# Use as Depends(require_group_permission(Permission.X)); runs after the membership check.
+def require_group_permission(permission: Permission) -> Callable[[MemberDep], GroupMember]:
+    def check(member: MemberDep) -> GroupMember:
+        GROUP_POLICY.authorize(Subject(member.user_id, member.role), permission, "Group owner only")
+        return member
 
-
-OwnerDep = Annotated[GroupMember, Depends(require_group_owner)]
+    return check
 
 
 def get_group_service(session: SessionDep) -> GroupService:

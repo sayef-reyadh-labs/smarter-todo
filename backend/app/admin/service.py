@@ -18,6 +18,7 @@ from app.auth.repository import RefreshTokenRepository
 from app.clock import utc_now
 from app.errors import BadRequestError, NotFoundError
 from app.groups.models import TaskGroup
+from app.rbac import SystemRole
 from app.tasks.models import Task
 
 
@@ -45,7 +46,7 @@ class AdminService:
         if user_id == admin.id:
             raise BadRequestError("You cannot ban yourself")
         user = self._get_user(user_id)
-        if user.role == "admin":
+        if user.role == SystemRole.ADMIN:
             raise BadRequestError("You cannot ban an admin; demote them first")
         patch = {"is_banned": True, "banned_at": utc_now(), "ban_reason": data.reason or None, "updated_at": utc_now()}
         user = self.repo.update_user(user, patch)
@@ -76,7 +77,7 @@ class AdminService:
         return AdminStats(
             users=UserStats(
                 total=count(AppUser),
-                admins=count(AppUser, AppUser.role == "admin"),
+                admins=count(AppUser, AppUser.role == SystemRole.ADMIN.value),
                 banned=count(AppUser, AppUser.is_banned),
                 new_last_7_days=count(AppUser, AppUser.created_at >= week_ago),
             ),

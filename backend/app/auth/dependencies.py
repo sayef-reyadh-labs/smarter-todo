@@ -44,13 +44,3 @@ def get_current_user(
 
 
 CurrentUser = Annotated[AppUser, Depends(get_current_user)]
-
-
-# The role comes from the database, not the token, so a role change applies on the next request.
-def require_admin(user: CurrentUser) -> AppUser:
-    if user.role != "admin":
-        raise ForbiddenError("Admin only")
-    return user
-
-
-AdminUser = Annotated[AppUser, Depends(require_admin)]
