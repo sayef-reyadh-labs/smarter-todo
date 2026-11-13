@@ -21,6 +21,7 @@ const USER_KEYS = ["q", "role", "status"] as const
 const TASK_KEYS = ["owner_id", "group_id", "scope", "status", "q"] as const
 const GROUP_KEYS = ["owner_id", "q"] as const
 const ACTIVITY_KEYS = ["user_id", "action", "q", "date_from", "date_to"] as const
+const ACTIVITY_POLL_MS = 5000
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong")
 
@@ -35,6 +36,7 @@ export function AdminPage() {
   const [banTargets, setBanTargets] = useState<AdminUser[]>([])
   const [banReason, setBanReason] = useState("")
   const [version, setVersion] = useState(0)
+  const [live, setLive] = useState(true)
 
   const tab = params.get("tab") ?? "users"
   const openUserId = params.get("user")
@@ -42,7 +44,12 @@ export function AdminPage() {
   const users = usePagedList<AdminUser, UserFilters>(apiService.getAdminUsers, { prefix: "u", keys: USER_KEYS, pageSize: PAGE_SIZE })
   const tasks = usePagedList<AdminTask, TaskFilters>(apiService.getAdminTasks, { prefix: "t", keys: TASK_KEYS, pageSize: PAGE_SIZE })
   const groups = usePagedList<AdminGroup, GroupFilters>(apiService.getAdminGroups, { prefix: "g", keys: GROUP_KEYS, pageSize: PAGE_SIZE })
-  const activity = usePagedList<AdminActivity, ActivityFilters>(apiService.getAdminActivity, { prefix: "a", keys: ACTIVITY_KEYS, pageSize: PAGE_SIZE })
+  const activity = usePagedList<AdminActivity, ActivityFilters>(apiService.getAdminActivity, {
+    prefix: "a",
+    keys: ACTIVITY_KEYS,
+    pageSize: PAGE_SIZE,
+    poll: { ms: ACTIVITY_POLL_MS, enabled: tab === "activity" && live },
+  })
 
   const loadStats = async () => {
     try {
@@ -210,6 +217,8 @@ export function AdminPage() {
                 page={activity.page}
                 pageSize={PAGE_SIZE}
                 filters={activity.filters}
+                live={live}
+                onLiveChange={setLive}
                 onFilterChange={activity.changeFilters}
                 onPageChange={activity.setPage}
                 onExport={() => apiService.exportAdminActivity(activity.filters)}
