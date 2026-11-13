@@ -1,5 +1,6 @@
 # Per-request wiring: builds session -> repository -> service, and loads the task for {task_id} routes.
 import uuid
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import Depends, HTTPException
@@ -23,7 +24,7 @@ ServiceDep = Annotated[TaskService, Depends(get_task_service)]
 def valid_task(task_id: uuid.UUID, service: ServiceDep) -> Task:
     task = service.get_task(task_id)
     if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Task not found")
     return task
 
 

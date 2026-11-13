@@ -9,6 +9,7 @@ Smarter Todo: FastAPI backend (`backend/`) + Vite/React/TypeScript frontend (`fr
 - Requirements and design live in `docs/`: [Product Requirements Document (PRD)](docs/01-prd.md), [Software Requirements Specification (SRS)](docs/02-srs.md), [Technical Design Document (TDD)](docs/03-tdd.md). Each doc covers both releases; items are marked **MVP** or **Beta**. Read them before implementing a feature.
 - Releases: **MVP** is demoed before the mid-term (task CRUD REST API only); **Beta** is demoed before the final (auth, RBAC, group tasks, security). Do not build Beta items while MVP work is in progress.
 - Automated tests and CI/CD are out of scope for this semester.
+- No bare numbers for HTTP status codes: backend uses `http.HTTPStatus`, frontend uses `HttpStatus` from `frontend/src/utils/httpStatus.ts`. Role and permission checks go through `backend/app/rbac/` (TDD section 10.3), never role strings.
 
 ## Branch naming
 

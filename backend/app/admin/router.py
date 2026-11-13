@@ -1,5 +1,6 @@
 # HTTP layer for /api/v1/admin: each route needs one RBAC permission, anyone without it gets 403.
 import uuid
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -54,7 +55,7 @@ def list_tasks(service: AdminServiceDep, offset: Offset = 0, limit: Limit = 20) 
     return service.list_tasks(offset, limit)
 
 
-@router.delete("/tasks/{task_id}", status_code=204, dependencies=[Depends(require_permission(Permission.ADMIN_TASKS_DELETE))])
+@router.delete("/tasks/{task_id}", status_code=HTTPStatus.NO_CONTENT, dependencies=[Depends(require_permission(Permission.ADMIN_TASKS_DELETE))])
 def delete_task(task_id: uuid.UUID, service: AdminServiceDep) -> None:
     service.delete_task(task_id)
 
