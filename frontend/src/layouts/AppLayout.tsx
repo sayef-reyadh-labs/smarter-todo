@@ -18,7 +18,7 @@ export function AppLayout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { darkMode, toggleDark } = useTheme()
-  const { user, logout } = useAuth()
+  const { user, loading, logout } = useAuth()
   const { token } = theme.useToken()
 
   const handleLogout = async () => {
@@ -26,8 +26,11 @@ export function AppLayout() {
     navigate("/login")
   }
 
-  const items = user
-    ? [
+  // While the session is being restored, show no links instead of flashing the guest ones.
+  const items = loading
+    ? []
+    : user
+      ? [
         { key: "/", label: <Link to="/">Home</Link> },
         { key: "/groups", label: <Link to="/groups">Groups</Link> },
         ...(user.role === "admin" ? [{ key: "/admin", label: <Link to="/admin">Admin</Link> }] : []),
