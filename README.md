@@ -2,7 +2,7 @@
 
 A task app for students: keep your own to-do list, and share task lists with your team for group projects. Built as a REST API with FastAPI and a React frontend, deployed on Vercel.
 
-> **Status:** MVP done; Beta in progress. Sign up, log in, private tasks and a profile page work (`/api/v1/auth`, `/api/v1/users/me`, `/api/v1/tasks`). Roles with an admin dashboard, group tasks and security hardening are planned next.
+> **Status:** MVP done; Beta in progress. Sign up, log in, private tasks, a profile page and an admin dashboard work. Group tasks and security hardening are planned next.
 
 ## Features
 
@@ -165,6 +165,16 @@ MIGRATION_DATABASE_URL="<supabase session pooler url>" alembic upgrade head    #
 ```
 
 > `MIGRATION_DATABASE_URL` wins over `DATABASE_URL`. Remove it from your shell afterwards, or a later local `alembic` command will change the hosted database.
+
+### Making someone an admin
+
+Everyone signs up as a `user`. There is no screen to create the first admin; promote an account once in the Supabase **SQL editor** (or the table editor), or in a local SQLite file with any SQLite tool:
+
+```sql
+update app_user set role = 'admin' where email = 'you@example.com';
+```
+
+After that, the **Admin** page (`/admin`) appears in the menu. Admins can promote and demote other users from it.
 
 ## Environment variables
 

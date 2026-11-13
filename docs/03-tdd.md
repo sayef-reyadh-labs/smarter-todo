@@ -113,7 +113,7 @@ backend/
       dependencies.py  # get_task_service (session -> repository -> service) and valid_task: resolves {task_id} to a Task or answers 404
     auth/              # /api/v1/auth/* (signup, login, refresh, logout): router, schemas, models (AppUser, RefreshToken), service, repository, dependencies (get_current_user)
     users/             # /api/v1/users/me (profile, change name, change password): router, schemas, service, dependencies
-    admin/             # (Beta) /api/v1/admin/* (require_admin)
+    admin/             # /api/v1/admin/* (require_admin): router, schemas, service, repository (queries across all users and tasks), dependencies
     groups/            # (Beta) /api/v1/groups/* (members and group tasks)
   alembic/             # migration scripts
   alembic.ini          # (Beta)
@@ -367,15 +367,15 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 
 | Method | Path | Who | Body | Success | Errors | FR |
 |---|---|---|---|---|---|---|
-| `GET` | `/api/v1/admin/users?offset&limit` | Admin | — | `200` `UserRead[]` | `403` | FR-21 |
+| `GET` | `/api/v1/admin/users?offset&limit` | Admin | — | `200` `AdminUserPage` | `403` | FR-21, FR-39 |
 | `PATCH` | `/api/v1/admin/users/{user_id}/role` | Admin | `RoleUpdate` | `200` `UserRead` | `400` (own role), `403`, `404` | FR-22 |
-| `GET` | `/api/v1/admin/tasks?offset&limit` | Admin | — | `200` `TaskRead[]` | `403` | FR-23 |
+| `GET` | `/api/v1/admin/tasks?offset&limit` | Admin | — | `200` `AdminTaskPage` | `403` | FR-23 |
 | `DELETE` | `/api/v1/admin/tasks/{task_id}` | Admin | — | `204` | `403`, `404` | FR-23 |
 | `GET` | `/api/v1/admin/stats` | Admin | — | `200` `AdminStats` | `403` | FR-35 |
 | `POST` | `/api/v1/admin/users/{user_id}/ban` | Admin | `BanRequest` | `200` `AdminUserRead` | `400` (self / other admin), `403`, `404` | FR-36 |
 | `POST` | `/api/v1/admin/users/{user_id}/unban` | Admin | — | `200` `AdminUserRead` | `403`, `404` | FR-38 |
 
-`GET /api/v1/admin/users` returns `AdminUserRead[]` so the dashboard can show who is banned (FR-39).
+The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like the task list. `AdminUserRead` is `UserRead` plus `is_banned`, `banned_at`, `ban_reason` and a computed `status` (`active` / `banned`), so the dashboard can show who is banned (FR-39). `AdminTaskRead` is `TaskRead` plus `owner_id`.
 
 **Groups**
 
@@ -549,7 +549,7 @@ def get_current_user(creds=Depends(bearer), session: Session = Depends(get_sessi
     user = session.get(AppUser, uuid.UUID(payload["sub"]))
     if user is None:
         raise UnauthorizedError("Invalid or expired token")   # app/errors.py: main.py answers 401
-    if user.is_banned:   # Beta B4 (admin): not in the first auth release
+    if user.is_banned:
         raise HTTPException(403, "Account banned")   # checked on every request, not only at login
     return user
 
@@ -644,7 +644,8 @@ stats = AdminStats(
 - Alembic lives in `backend/alembic/`, with `target_metadata = SQLModel.metadata`. It reads `MIGRATION_DATABASE_URL`, falling back to `DATABASE_URL`.
 - Revision `0001_uuid_task_id` (MVP): creates the `task` table (uuid id) on a fresh database, and converts an integer `task.id` to `uuid` on an existing PostgreSQL database. It does nothing when `id` is already `uuid`. Integer id `n` becomes the uuid whose last digits are `n` in hex.
 - Revision `0002_auth` (#4): create `app_user` (`id`, `email`, `name`, `password_hash`, `role`, `created_at`, `updated_at`) and `refresh_token`; delete the existing MVP demo tasks (they have no owner); add `task.owner_id` (not null, foreign key to `app_user`, indexed).
-- Revision `0003_beta` (Beta, later issues): lockout and ban columns on `app_user`, `task_group`, `group_member`, and `group_id` and `assignee_id` on `task`.
+- Revision `0003_ban` (#5): `is_banned`, `banned_at` and `ban_reason` on `app_user`.
+- Revisions `0004_groups` and `0005_lockout` (#6): `task_group`, `group_member`, `task.group_id` and `task.assignee_id`; then `failed_login_count` and `locked_until` on `app_user`.
 - Run migrations from a developer machine: `MIGRATION_DATABASE_URL=... alembic upgrade head` (Supabase session pooler, port `5432`), then merge the code. `MIGRATION_DATABASE_URL` wins over `DATABASE_URL`, so never leave it set in a shell where you run local tests.
 - Locally, `alembic upgrade head` (with `DATABASE_URL` unset) builds `backend/smarter_todo.db`; run it again after pulling a change that adds a revision.
 - Promote the first admin in the Supabase table editor: set `role = 'admin'` on your `app_user` row.
