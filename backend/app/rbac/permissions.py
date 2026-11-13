@@ -10,6 +10,7 @@ class Permission(str, Enum):
     ADMIN_TASKS_VIEW = "admin:tasks:view"
     ADMIN_TASKS_DELETE = "admin:tasks:delete"
     ADMIN_ACTIVITY_VIEW = "admin:activity:view"
+    ADMIN_GROUPS_VIEW = "admin:groups:view"
 
     # Group level (checked against group_member.role)
     GROUP_VIEW = "group:view"

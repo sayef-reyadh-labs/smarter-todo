@@ -2,12 +2,17 @@
 import uuid
 from datetime import timedelta
 
+from app.activity.filters import ActivityFilters
 from app.activity.repository import ActivityRepository
 from app.activity.schemas import ActivityPage
+from app.admin.filters import GroupFilters, TaskFilters, UserFilters
 from app.admin.repository import AdminRepository
 from app.admin.schemas import (
+    AdminGroupPage,
+    AdminGroupRead,
     AdminStats,
     AdminTaskPage,
+    AdminTaskRead,
     AdminUserPage,
     BanRequest,
     GroupStats,
@@ -30,18 +35,18 @@ class AdminService:
         self.tokens = tokens
         self.activity = activity
 
-    def list_activity(self, offset: int, limit: int, user_id: uuid.UUID | None, action: str | None) -> ActivityPage:
+    def list_activity(self, offset: int, limit: int, filters: ActivityFilters) -> ActivityPage:
         return ActivityPage(
-            items=self.activity.list(offset, limit, user_id, action),
-            total=self.activity.count(user_id, action),
+            items=self.activity.list(offset, limit, filters),
+            total=self.activity.count(filters),
             offset=offset,
             limit=limit,
         )
 
-    def list_users(self, offset: int, limit: int) -> AdminUserPage:
+    def list_users(self, offset: int, limit: int, filters: UserFilters) -> AdminUserPage:
         return AdminUserPage(
-            items=self.repo.list_users(offset, limit),
-            total=self.repo.count(AppUser),
+            items=self.repo.list_users(offset, limit, filters),
+            total=self.repo.count_users(filters),
             offset=offset,
             limit=limit,
         )
@@ -68,10 +73,23 @@ class AdminService:
         patch = {"is_banned": False, "banned_at": None, "ban_reason": None, "updated_at": utc_now()}
         return self.repo.update_user(self._get_user(user_id), patch)
 
-    def list_tasks(self, offset: int, limit: int) -> AdminTaskPage:
+    def list_tasks(self, offset: int, limit: int, filters: TaskFilters) -> AdminTaskPage:
+        rows = self.repo.list_tasks(offset, limit, filters)
         return AdminTaskPage(
-            items=self.repo.list_tasks(offset, limit),
-            total=self.repo.count(Task),
+            items=[AdminTaskRead(**task.model_dump(), owner_email=email, group_name=group) for task, email, group in rows],
+            total=self.repo.count_tasks(filters),
+            offset=offset,
+            limit=limit,
+        )
+
+    def list_groups(self, offset: int, limit: int, filters: GroupFilters) -> AdminGroupPage:
+        rows = self.repo.list_groups(offset, limit, filters)
+        return AdminGroupPage(
+            items=[
+                AdminGroupRead(id=g.id, name=g.name, owner_id=g.created_by, owner_email=email, member_count=m, task_count=t, created_at=g.created_at)
+                for g, email, m, t in rows
+            ],
+            total=self.repo.count_groups(filters),
             offset=offset,
             limit=limit,
         )

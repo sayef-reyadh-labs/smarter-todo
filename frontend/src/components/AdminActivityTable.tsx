@@ -1,15 +1,18 @@
-// Table of what users did (logins, task and group actions), newest first, with an action filter.
-import { Select, Table, Tag, Tooltip, Typography, type TableColumnsType } from "antd"
+// Table of what users did (logins, task and group actions), newest first, with user, action, text and date filters.
+import { DatePicker, Flex, Select, Table, Tag, Tooltip, Typography, type TableColumnsType } from "antd"
 import dayjs from "dayjs"
-import { ACTIVITY_ACTIONS, type AdminActivity, type Page } from "../types/admin"
+import { ACTIVITY_ACTIONS, type ActivityFilters, type AdminActivity, type Page } from "../types/admin"
+import { UserPicker } from "./AdminPickers"
+import { SearchInput } from "./SearchInput"
 
 type Props = {
-  activity: Page<AdminActivity>
+  activity: Page<AdminActivity> | null
+  loading: boolean
   page: number
   pageSize: number
-  action: string | undefined
+  filters: ActivityFilters
+  onFilterChange: (patch: Partial<ActivityFilters>) => void
   onPageChange: (page: number) => void
-  onActionChange: (action: string | undefined) => void
 }
 
 const colorOf = (action: string) => {
@@ -23,7 +26,7 @@ const labelOf = (action: string) => action.replaceAll("_", " ")
 
 const actionOptions = ACTIVITY_ACTIONS.map((a) => ({ value: a, label: labelOf(a) }))
 
-export function AdminActivityTable({ activity, page, pageSize, action, onPageChange, onActionChange }: Props) {
+export function AdminActivityTable({ activity, loading, page, pageSize, filters, onFilterChange, onPageChange }: Props) {
   const columns: TableColumnsType<AdminActivity> = [
     { title: "Time", dataIndex: "created_at", render: (at: string) => dayjs(at).format("YYYY-MM-DD HH:mm:ss"), width: 170 },
     { title: "User", dataIndex: "email", render: (email: string | null) => email ?? "-" },
@@ -48,23 +51,38 @@ export function AdminActivityTable({ activity, page, pageSize, action, onPageCha
 
   return (
     <>
-      <Select
-        allowClear
-        showSearch
-        placeholder="Filter by action"
-        value={action}
-        options={actionOptions}
-        onChange={(value) => onActionChange(value)}
-        style={{ width: 240, marginBottom: 12 }}
-        aria-label="Filter activity by action"
-      />
+      <Flex wrap gap={8} style={{ marginBottom: 12 }}>
+        <SearchInput placeholder="Search user or detail" onSearch={(q) => onFilterChange({ q })} />
+        <UserPicker value={filters.user_id} onChange={(user_id) => onFilterChange({ user_id })} placeholder="Any user" />
+        <Select
+          allowClear
+          showSearch
+          placeholder="Any action"
+          value={filters.action}
+          options={actionOptions}
+          onChange={(action) => onFilterChange({ action })}
+          style={{ width: 200 }}
+          aria-label="Filter activity by action"
+        />
+        <DatePicker.RangePicker
+          allowEmpty={[true, true]}
+          placeholder={["From (UTC)", "To (UTC)"]}
+          onChange={(range) =>
+            onFilterChange({
+              date_from: range?.[0]?.format("YYYY-MM-DD"),
+              date_to: range?.[1]?.format("YYYY-MM-DD"),
+            })
+          }
+        />
+      </Flex>
       <Table
         rowKey="id"
         size="small"
+        loading={loading}
         columns={columns}
-        dataSource={activity.items}
+        dataSource={activity?.items ?? []}
         scroll={{ x: true }}
-        pagination={{ current: page, pageSize, total: activity.total, onChange: onPageChange, showSizeChanger: false }}
+        pagination={{ current: page, pageSize, total: activity?.total ?? 0, onChange: onPageChange, showSizeChanger: false }}
       />
     </>
   )

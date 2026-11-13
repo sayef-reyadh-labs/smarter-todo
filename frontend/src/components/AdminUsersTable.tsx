@@ -1,19 +1,23 @@
-// Table of all users with role change, ban and unban; every change goes up through callbacks.
-import { Button, Select, Space, Table, Tag, Tooltip, type TableColumnsType } from "antd"
-import type { AdminUser, Page } from "../types/admin"
+// Table of all users with search, role and status filters, and role change, ban and unban; every change goes up through callbacks.
+import { Button, Flex, Select, Space, Table, Tag, Tooltip, type TableColumnsType } from "antd"
+import type { AdminUser, Page, UserFilters } from "../types/admin"
+import { SearchInput } from "./SearchInput"
 
 type Props = {
-  users: Page<AdminUser>
+  users: Page<AdminUser> | null
+  loading: boolean
   currentUserId: string
   page: number
   pageSize: number
+  filters: UserFilters
+  onFilterChange: (patch: Partial<UserFilters>) => void
   onPageChange: (page: number) => void
   onRoleChange: (user: AdminUser, role: "user" | "admin") => void
   onBan: (user: AdminUser) => void
   onUnban: (user: AdminUser) => void
 }
 
-export function AdminUsersTable({ users, currentUserId, page, pageSize, onPageChange, onRoleChange, onBan, onUnban }: Props) {
+export function AdminUsersTable({ users, loading, currentUserId, page, pageSize, filters, onFilterChange, onPageChange, onRoleChange, onBan, onUnban }: Props) {
   const columns: TableColumnsType<AdminUser> = [
     { title: "Name", dataIndex: "name" },
     { title: "Email", dataIndex: "email" },
@@ -66,13 +70,43 @@ export function AdminUsersTable({ users, currentUserId, page, pageSize, onPageCh
   ]
 
   return (
-    <Table
-      rowKey="id"
-      size="small"
-      columns={columns}
-      dataSource={users.items}
-      scroll={{ x: true }}
-      pagination={{ current: page, pageSize, total: users.total, onChange: onPageChange, showSizeChanger: false }}
-    />
+    <>
+      <Flex wrap gap={8} style={{ marginBottom: 12 }}>
+        <SearchInput placeholder="Search name or email" onSearch={(q) => onFilterChange({ q })} />
+        <Select
+          allowClear
+          placeholder="Any role"
+          value={filters.role}
+          onChange={(role) => onFilterChange({ role })}
+          options={[
+            { value: "user", label: "user" },
+            { value: "admin", label: "admin" },
+          ]}
+          style={{ width: 130 }}
+          aria-label="Filter users by role"
+        />
+        <Select
+          allowClear
+          placeholder="Any status"
+          value={filters.status}
+          onChange={(status) => onFilterChange({ status })}
+          options={[
+            { value: "active", label: "active" },
+            { value: "banned", label: "banned" },
+          ]}
+          style={{ width: 140 }}
+          aria-label="Filter users by status"
+        />
+      </Flex>
+      <Table
+        rowKey="id"
+        size="small"
+        loading={loading}
+        columns={columns}
+        dataSource={users?.items ?? []}
+        scroll={{ x: true }}
+        pagination={{ current: page, pageSize, total: users?.total ?? 0, onChange: onPageChange, showSizeChanger: false }}
+      />
+    </>
   )
 }
