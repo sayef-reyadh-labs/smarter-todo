@@ -118,7 +118,8 @@ export function GroupDetailPage() {
         members={members}
         currentUserId={user.id}
         isOwner={isOwner}
-        onAdd={(title, assigneeId) => run(() => apiService.createGroupTask(group.id, { title, assignee_id: assigneeId }), "Task added")}
+        onAdd={(data) => run(() => apiService.createGroupTask(group.id, data), "Task added")}
+        onEdit={(task, patch) => run(() => apiService.updateGroupTask(group.id, task.id, patch), "Task updated")}
         onToggle={(task) => run(() => apiService.updateGroupTask(group.id, task.id, { is_completed: !task.is_completed }), "Task updated")}
         onAssign={(task, assigneeId) => run(() => apiService.updateGroupTask(group.id, task.id, { assignee_id: assigneeId }), "Assignee updated")}
         onDelete={(task) => run(() => apiService.deleteGroupTask(group.id, task.id), "Task deleted")}

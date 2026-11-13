@@ -218,7 +218,7 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 | FR-27 | The owner shall be able to rename or delete the group. Deleting a group deletes its tasks and memberships. | Beta | US-14 |
 | FR-28 | The owner shall be able to add a member by email. Unknown email returns `404`; an existing member returns `409`. | Beta | US-15 |
 | FR-29 | The owner shall be able to remove a member. A member shall be able to leave. The owner cannot leave (they delete the group instead). | Beta | US-15, US-18 |
-| FR-30 | Group members shall be able to list, create, view and update the group's tasks. | Beta | US-16 |
+| FR-30 | Group members shall be able to list, create, view and update the group's tasks. A group task has a title, an optional description and an optional due date (not in the past), like a personal task. | Beta | US-16 |
 | FR-31 | A group task may have an `assignee_id`, which must be a member of the group (`422` otherwise). When a member leaves or is removed, their assigned tasks in that group become unassigned. | Beta | US-17 |
 | FR-32 | A group task can be deleted by its creator or by the group owner. | Beta | US-16 |
 | FR-33 | A user who is not a member of a group shall get `404` for that group and its tasks. | Beta | US-16 |
