@@ -311,7 +311,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 | NFR-08 | Maintainability | Code is split into layers: routes, schemas, models, database. | MVP |
 | NFR-09 | Usability (API) | Every endpoint is listed in `/api/docs` with request and response schemas. | MVP |
 | NFR-10 | Deployability | The app runs on Vercel; a push to `main` updates production. | MVP |
-| NFR-11 | Security | Passwords are hashed with Argon2; plain passwords are never stored, logged or returned. | Beta |
+| NFR-11 | Security | Passwords are hashed with Argon2 (random salt per hash) after a server-side pepper is applied; plain passwords are never stored, logged or returned. | Beta |
 | NFR-12 | Security | Access tokens are JWTs signed with a secret of at least 32 bytes from an env var, valid for 15 minutes. | Beta |
 | NFR-13 | Security | Refresh tokens are random, valid for 7 days, stored only as a hash, and replaced on every refresh. | Beta |
 | NFR-14 | Security | The refresh token cookie is `HttpOnly`, `Secure`, `SameSite=Strict` and limited to path `/api/v1/auth`. | Beta |

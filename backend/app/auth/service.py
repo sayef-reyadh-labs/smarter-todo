@@ -12,6 +12,7 @@ from app.security import (
     hash_password,
     hash_refresh_token,
     new_refresh_token,
+    password_needs_upgrade,
     verify_against_dummy,
     verify_password,
 )
@@ -52,8 +53,13 @@ class AuthService:
             raise UnauthorizedError("Invalid email or password")
         if user.is_banned:
             raise ForbiddenError("Account banned")
+        changes: dict = {}
         if user.failed_login_count or user.locked_until is not None:
-            self.users.update(user, {"failed_login_count": 0, "locked_until": None})
+            changes.update(failed_login_count=0, locked_until=None)
+        if password_needs_upgrade(user.password_hash):
+            changes["password_hash"] = hash_password(data.password)
+        if changes:
+            self.users.update(user, changes)
         access_token, refresh_token = self._issue_tokens(user)
         return user, access_token, refresh_token
 

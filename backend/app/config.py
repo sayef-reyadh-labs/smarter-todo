@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     VERCEL: str | None = None
     # Signs the access tokens. Required on Vercel; locally a fixed development value is used.
     JWT_SECRET: str | None = None
+    # Secret mixed into every password before hashing; keep it out of the database. Required on Vercel.
+    PASSWORD_PEPPER: str | None = None
     ACCESS_TOKEN_MINUTES: int = 15
     REFRESH_TOKEN_DAYS: int = 7
 
@@ -50,6 +52,14 @@ class Settings(BaseSettings):
         if self.VERCEL:
             raise RuntimeError("JWT_SECRET must be set in the Vercel environment variables")
         return "development-only-secret-change-me-0123456789"
+
+    @property
+    def password_pepper(self) -> str:
+        if self.PASSWORD_PEPPER:
+            return self.PASSWORD_PEPPER
+        if self.VERCEL:
+            raise RuntimeError("PASSWORD_PEPPER must be set in the Vercel environment variables")
+        return "development-only-pepper-change-me-0123456789"
 
 
 settings = Settings()
