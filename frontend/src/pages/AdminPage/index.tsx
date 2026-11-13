@@ -1,14 +1,16 @@
-// Admin dashboard at /admin: stats, user management (role, ban, unban) and removing tasks.
+// Admin dashboard at /admin: stats, then filterable tabs for users (role, ban, unban), tasks, groups and activity.
 import { Alert, App as AntApp, Input, Modal, Tabs, Typography } from "antd"
 import { useEffect, useState } from "react"
 import { AdminActivityTable } from "../../components/AdminActivityTable"
+import { AdminGroupsTable } from "../../components/AdminGroupsTable"
 import { AdminStatsCards } from "../../components/AdminStatsCards"
 import { AdminTasksTable } from "../../components/AdminTasksTable"
 import { AdminUsersTable } from "../../components/AdminUsersTable"
 import { PageHeader } from "../../components/PageHeader"
 import { useAuth } from "../../context/AuthContext"
+import { usePagedList } from "../../hooks/usePagedList"
 import { apiService } from "../../services/api"
-import type { AdminActivity, AdminStats, AdminTask, AdminUser, Page } from "../../types/admin"
+import type { ActivityFilters, AdminStats, AdminUser, GroupFilters, TaskFilters, UserFilters } from "../../types/admin"
 
 const PAGE_SIZE = 10
 
@@ -18,84 +20,34 @@ export function AdminPage() {
   const { user: me } = useAuth()
   const { message } = AntApp.useApp()
   const [stats, setStats] = useState<AdminStats | null>(null)
-  const [users, setUsers] = useState<Page<AdminUser> | null>(null)
-  const [tasks, setTasks] = useState<Page<AdminTask> | null>(null)
-  const [activity, setActivity] = useState<Page<AdminActivity> | null>(null)
-  const [userPage, setUserPage] = useState(1)
-  const [taskPage, setTaskPage] = useState(1)
-  const [activityPage, setActivityPage] = useState(1)
-  const [activityAction, setActivityAction] = useState<string | undefined>()
-  const [error, setError] = useState("")
+  const [statsError, setStatsError] = useState("")
   const [banTarget, setBanTarget] = useState<AdminUser | null>(null)
   const [banReason, setBanReason] = useState("")
 
-  const reload = async (uPage = userPage, tPage = taskPage, aPage = activityPage, action = activityAction) => {
-    const [s, u, t, a] = await Promise.all([
-      apiService.getAdminStats(),
-      apiService.getAdminUsers((uPage - 1) * PAGE_SIZE, PAGE_SIZE),
-      apiService.getAdminTasks((tPage - 1) * PAGE_SIZE, PAGE_SIZE),
-      apiService.getAdminActivity((aPage - 1) * PAGE_SIZE, PAGE_SIZE, action),
-    ])
-    setStats(s)
-    setUsers(u)
-    setTasks(t)
-    setActivity(a)
+  const users = usePagedList(apiService.getAdminUsers, {} as UserFilters, PAGE_SIZE)
+  const tasks = usePagedList(apiService.getAdminTasks, {} as TaskFilters, PAGE_SIZE)
+  const groups = usePagedList(apiService.getAdminGroups, {} as GroupFilters, PAGE_SIZE)
+  const activity = usePagedList(apiService.getAdminActivity, {} as ActivityFilters, PAGE_SIZE)
+
+  const loadStats = async () => {
+    try {
+      setStats(await apiService.getAdminStats())
+      setStatsError("")
+    } catch (err) {
+      setStatsError(messageOf(err))
+    }
   }
 
   useEffect(() => {
-    const loadOnOpen = async () => {
-      try {
-        await reload()
-      } catch (err) {
-        setError(messageOf(err))
-      }
-    }
-    loadOnOpen()
+    loadStats()
   }, [])
 
-  // Runs a change, refreshes everything on screen and reports the result.
+  // Runs a change, then refreshes everything on screen (keeping the filters) and reports the result.
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
       await action()
-      await reload()
+      await Promise.all([loadStats(), users.reload(), tasks.reload(), groups.reload(), activity.reload()])
       message.success(success)
-    } catch (err) {
-      message.error(messageOf(err))
-    }
-  }
-
-  const changeUserPage = async (page: number) => {
-    setUserPage(page)
-    try {
-      await reload(page, taskPage)
-    } catch (err) {
-      message.error(messageOf(err))
-    }
-  }
-
-  const changeTaskPage = async (page: number) => {
-    setTaskPage(page)
-    try {
-      await reload(userPage, page)
-    } catch (err) {
-      message.error(messageOf(err))
-    }
-  }
-
-  const changeActivityPage = async (page: number) => {
-    setActivityPage(page)
-    try {
-      await reload(userPage, taskPage, page)
-    } catch (err) {
-      message.error(messageOf(err))
-    }
-  }
-
-  const changeActivityAction = async (action: string | undefined) => {
-    setActivityAction(action)
-    setActivityPage(1)
-    try {
-      await reload(userPage, taskPage, 1, action)
     } catch (err) {
       message.error(messageOf(err))
     }
@@ -111,6 +63,8 @@ export function AdminPage() {
 
   if (!me) return null
 
+  const error = statsError || users.error || tasks.error || groups.error || activity.error
+
   return (
     <>
       <PageHeader title="Admin dashboard" subtitle="Usage, users, tasks and what people did." />
@@ -122,14 +76,17 @@ export function AdminPage() {
         items={[
           {
             key: "users",
-            label: `Users${users ? ` (${users.total})` : ""}`,
-            children: users && (
+            label: `Users${users.data ? ` (${users.data.total})` : ""}`,
+            children: (
               <AdminUsersTable
-                users={users}
+                users={users.data}
+                loading={users.loading}
                 currentUserId={me.id}
-                page={userPage}
+                page={users.page}
                 pageSize={PAGE_SIZE}
-                onPageChange={changeUserPage}
+                filters={users.filters}
+                onFilterChange={users.changeFilters}
+                onPageChange={users.setPage}
                 onRoleChange={(user, role) => run(() => apiService.changeUserRole(user.id, role), `${user.email} is now ${role}`)}
                 onBan={setBanTarget}
                 onUnban={(user) => run(() => apiService.unbanUser(user.id), `${user.email} unbanned`)}
@@ -138,28 +95,47 @@ export function AdminPage() {
           },
           {
             key: "tasks",
-            label: `Tasks${tasks ? ` (${tasks.total})` : ""}`,
-            children: tasks && (
+            label: `Tasks${tasks.data ? ` (${tasks.data.total})` : ""}`,
+            children: (
               <AdminTasksTable
-                tasks={tasks}
-                page={taskPage}
+                tasks={tasks.data}
+                loading={tasks.loading}
+                page={tasks.page}
                 pageSize={PAGE_SIZE}
-                onPageChange={changeTaskPage}
+                filters={tasks.filters}
+                onFilterChange={tasks.changeFilters}
+                onPageChange={tasks.setPage}
                 onDelete={(task) => run(() => apiService.deleteAdminTask(task.id), "Task deleted")}
+              />
+            ),
+          },
+          {
+            key: "groups",
+            label: `Groups${groups.data ? ` (${groups.data.total})` : ""}`,
+            children: (
+              <AdminGroupsTable
+                groups={groups.data}
+                loading={groups.loading}
+                page={groups.page}
+                pageSize={PAGE_SIZE}
+                filters={groups.filters}
+                onFilterChange={groups.changeFilters}
+                onPageChange={groups.setPage}
               />
             ),
           },
           {
             key: "activity",
             label: "Activity",
-            children: activity && (
+            children: (
               <AdminActivityTable
-                activity={activity}
-                page={activityPage}
+                activity={activity.data}
+                loading={activity.loading}
+                page={activity.page}
                 pageSize={PAGE_SIZE}
-                action={activityAction}
-                onPageChange={changeActivityPage}
-                onActionChange={changeActivityAction}
+                filters={activity.filters}
+                onFilterChange={activity.changeFilters}
+                onPageChange={activity.setPage}
               />
             ),
           },

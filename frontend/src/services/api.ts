@@ -1,6 +1,17 @@
 // Every backend call lives here; pages never call fetch directly. Also keeps the access token and refreshes it.
 import type { LoginInput, PasswordChangeInput, SignupInput, TokenResponse, User } from "../types/auth"
-import type { AdminActivity, AdminStats, AdminTask, AdminUser, Page } from "../types/admin"
+import type {
+  ActivityFilters,
+  AdminActivity,
+  AdminGroup,
+  AdminStats,
+  AdminTask,
+  AdminUser,
+  GroupFilters,
+  Page,
+  TaskFilters,
+  UserFilters,
+} from "../types/admin"
 import type { Group, GroupTask, GroupTaskInput, GroupTaskPatch, Member } from "../types/group"
 import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
 import { HttpStatus } from "../utils/httpStatus"
@@ -77,6 +88,15 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 const post = <T,>(url: string, data?: unknown) =>
   request<T>(url, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) })
 
+// "?offset=0&limit=10&q=abc": filters left undefined or empty are left out.
+const query = (params: Record<string, string | number | undefined>) => {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value))
+  }
+  return `?${search.toString()}`
+}
+
 // Central place for every backend call, like smart-todo's apiService.
 export const apiService = {
   // The page calls this so it can send the user to the login screen when the session ends.
@@ -124,7 +144,8 @@ export const apiService = {
 
   getAdminStats: () => request<AdminStats>(`${ADMIN}/stats`),
 
-  getAdminUsers: (offset = 0, limit = 10) => request<Page<AdminUser>>(`${ADMIN}/users?offset=${offset}&limit=${limit}`),
+  getAdminUsers: (offset = 0, limit = 10, filters: UserFilters = {}) =>
+    request<Page<AdminUser>>(`${ADMIN}/users${query({ offset, limit, ...filters })}`),
 
   changeUserRole: (id: string, role: "user" | "admin") =>
     request<User>(`${ADMIN}/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
@@ -133,14 +154,16 @@ export const apiService = {
 
   unbanUser: (id: string) => post<AdminUser>(`${ADMIN}/users/${id}/unban`),
 
-  getAdminTasks: (offset = 0, limit = 10) => request<Page<AdminTask>>(`${ADMIN}/tasks?offset=${offset}&limit=${limit}`),
+  getAdminTasks: (offset = 0, limit = 10, filters: TaskFilters = {}) =>
+    request<Page<AdminTask>>(`${ADMIN}/tasks${query({ offset, limit, ...filters })}`),
+
+  getAdminGroups: (offset = 0, limit = 10, filters: GroupFilters = {}) =>
+    request<Page<AdminGroup>>(`${ADMIN}/groups${query({ offset, limit, ...filters })}`),
 
   deleteAdminTask: (id: string) => request<void>(`${ADMIN}/tasks/${id}`, { method: "DELETE" }),
 
-  getAdminActivity: (offset = 0, limit = 10, action?: string) =>
-    request<Page<AdminActivity>>(
-      `${ADMIN}/activity?offset=${offset}&limit=${limit}${action ? `&action=${encodeURIComponent(action)}` : ""}`,
-    ),
+  getAdminActivity: (offset = 0, limit = 10, filters: ActivityFilters = {}) =>
+    request<Page<AdminActivity>>(`${ADMIN}/activity${query({ offset, limit, ...filters })}`),
 
   getGroups: () => request<Group[]>(GROUPS),
 

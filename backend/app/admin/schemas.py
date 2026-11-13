@@ -46,11 +46,36 @@ class AdminUserPage(SQLModel):
 # A task as an admin sees it: any owner and any group, so both are shown.
 class AdminTaskRead(TaskRead):
     owner_id: uuid.UUID
+    owner_email: str
     group_id: uuid.UUID | None = None
+    group_name: str | None = None
 
 
 class AdminTaskPage(SQLModel):
     items: list[AdminTaskRead]
+    total: int
+    offset: int
+    limit: int
+
+
+class AdminGroupRead(SQLModel):
+    id: uuid.UUID
+    name: str
+    owner_id: uuid.UUID
+    owner_email: str
+    member_count: int
+    task_count: int
+    created_at: datetime
+
+    # SQLite returns naive datetimes; they are stored as UTC.
+    @field_validator("created_at")
+    @classmethod
+    def created_at_as_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+class AdminGroupPage(SQLModel):
+    items: list[AdminGroupRead]
     total: int
     offset: int
     limit: int

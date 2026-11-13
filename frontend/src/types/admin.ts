@@ -11,7 +11,34 @@ export type AdminUser = User & {
   status: "active" | "banned"
 }
 
-export type AdminTask = Task & { owner_id: string; group_id: string | null }
+export type AdminTask = Task & {
+  owner_id: string
+  owner_email: string
+  group_id: string | null
+  group_name: string | null
+}
+
+export type AdminGroup = {
+  id: string
+  name: string
+  owner_id: string
+  owner_email: string
+  member_count: number
+  task_count: number
+  created_at: string
+}
+
+// Query parameters of the admin lists; an undefined value means "no filter".
+export type UserFilters = { q?: string; role?: "user" | "admin"; status?: "active" | "banned" }
+export type TaskFilters = {
+  owner_id?: string
+  group_id?: string
+  scope?: "personal" | "group"
+  status?: "open" | "done" | "overdue"
+  q?: string
+}
+export type GroupFilters = { owner_id?: string; q?: string }
+export type ActivityFilters = { user_id?: string; action?: string; q?: string; date_from?: string; date_to?: string }
 
 // Mirrors ActivityAction on the backend.
 export const ACTIVITY_ACTIONS = [

@@ -128,6 +128,7 @@ Priorities are per release: a Beta "Must" is required for the final, not for the
 | F-20 | Ban / unban users (banned users cannot log in or use the API) | Beta | Must |
 | F-21 | User profile: view profile, change name, change password | Beta | Should |
 | F-22 | Activity log: record what users did (logins, task and group actions) and show it to admins | Beta | Should |
+| F-23 | Admin filters: narrow users, tasks, groups and activity by user, group, status, text and dates | Beta | Should |
 
 ## 7. User stories
 
@@ -165,6 +166,7 @@ Priorities are per release: a Beta "Must" is required for the final, not for the
 | US-23 | As a user, I want a profile page showing my name, email and role, so I can see my account details. | F-21 |
 | US-24 | As a user, I want to change my name and my password, so I can keep my account up to date and secure. | F-21 |
 | US-25 | As an admin, I want to see what users did (logins, failed logins, task and group actions) with time and IP address, so I can spot misuse and support users. | F-22 |
+| US-26 | As an admin, I want to filter the lists by user, group, status, text and dates, so I can find what I need quickly. | F-23 |
 
 ## 8. Success metrics
 

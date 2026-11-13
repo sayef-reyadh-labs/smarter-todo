@@ -7,9 +7,12 @@ from fastapi import APIRouter, Depends, Query
 
 from app.activity.actions import ActivityAction
 from app.activity.dependencies import UserActivityDep
+from app.activity.filters import ActivityFiltersDep
 from app.activity.schemas import ActivityPage
 from app.admin.dependencies import AdminServiceDep
+from app.admin.filters import GroupFiltersDep, TaskFiltersDep, UserFiltersDep
 from app.admin.schemas import (
+    AdminGroupPage,
     AdminStats,
     AdminTaskPage,
     AdminUserPage,
@@ -32,8 +35,8 @@ UserManager = Annotated[AppUser, Depends(require_permission(Permission.ADMIN_USE
 
 
 @router.get("/users", response_model=AdminUserPage, dependencies=[Depends(require_permission(Permission.ADMIN_USERS_VIEW))])
-def list_users(service: AdminServiceDep, offset: Offset = 0, limit: Limit = 20) -> AdminUserPage:
-    return service.list_users(offset, limit)
+def list_users(service: AdminServiceDep, filters: UserFiltersDep, offset: Offset = 0, limit: Limit = 20) -> AdminUserPage:
+    return service.list_users(offset, limit, filters)
 
 
 # 400 when an admin changes their own role.
@@ -62,8 +65,13 @@ def unban_user(user_id: uuid.UUID, service: AdminServiceDep, activity: UserActiv
 
 
 @router.get("/tasks", response_model=AdminTaskPage, dependencies=[Depends(require_permission(Permission.ADMIN_TASKS_VIEW))])
-def list_tasks(service: AdminServiceDep, offset: Offset = 0, limit: Limit = 20) -> AdminTaskPage:
-    return service.list_tasks(offset, limit)
+def list_tasks(service: AdminServiceDep, filters: TaskFiltersDep, offset: Offset = 0, limit: Limit = 20) -> AdminTaskPage:
+    return service.list_tasks(offset, limit, filters)
+
+
+@router.get("/groups", response_model=AdminGroupPage, dependencies=[Depends(require_permission(Permission.ADMIN_GROUPS_VIEW))])
+def list_groups(service: AdminServiceDep, filters: GroupFiltersDep, offset: Offset = 0, limit: Limit = 20) -> AdminGroupPage:
+    return service.list_groups(offset, limit, filters)
 
 
 @router.delete("/tasks/{task_id}", status_code=HTTPStatus.NO_CONTENT, dependencies=[Depends(require_permission(Permission.ADMIN_TASKS_DELETE))])
@@ -72,16 +80,10 @@ def delete_task(task_id: uuid.UUID, service: AdminServiceDep, activity: UserActi
     activity.log(ActivityAction.ADMIN_TASK_DELETED, entity_type="task", entity_id=task_id)
 
 
-# What users did, newest first; filter by user and / or action.
+# What users did, newest first; filter by user, action, text and date range.
 @router.get("/activity", response_model=ActivityPage, dependencies=[Depends(require_permission(Permission.ADMIN_ACTIVITY_VIEW))])
-def list_activity(
-    service: AdminServiceDep,
-    offset: Offset = 0,
-    limit: Limit = 20,
-    user_id: uuid.UUID | None = None,
-    action: ActivityAction | None = None,
-) -> ActivityPage:
-    return service.list_activity(offset, limit, user_id, action.value if action else None)
+def list_activity(service: AdminServiceDep, filters: ActivityFiltersDep, offset: Offset = 0, limit: Limit = 20) -> ActivityPage:
+    return service.list_activity(offset, limit, filters)
 
 
 @router.get("/stats", response_model=AdminStats, dependencies=[Depends(require_permission(Permission.ADMIN_STATS_VIEW))])
