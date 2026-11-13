@@ -38,6 +38,9 @@ class SuspiciousIp(SQLModel):
     failures: int
     distinct_accounts: int
     last_seen: datetime
+    kinds: dict[str, int] = {}  # event type -> how many times
+    emails: list[str] = []  # accounts this address tried (a few)
+    user_agent: str | None = None  # browser of the latest event
 
     @field_validator("last_seen")
     @classmethod
@@ -49,8 +52,13 @@ class SuspiciousIp(SQLModel):
 class SuspiciousAccount(SQLModel):
     email: str
     user_id: uuid.UUID | None = None
+    name: str | None = None
+    is_banned: bool = False
+    is_locked: bool = False
     failures: int
     distinct_ips: int
+    ip_addresses: list[str] = []
+    user_agent: str | None = None
     last_seen: datetime
 
     @field_validator("last_seen")
@@ -63,6 +71,7 @@ class SecurityReport(SQLModel):
     since: datetime
     ips: list[SuspiciousIp]
     accounts: list[SuspiciousAccount]
+    events: list[ActivityRead] = []  # newest hostile events, whatever their address
 
 
 class PurgeResult(SQLModel):

@@ -77,8 +77,8 @@ class ActivityRepository:
         )
         return [tuple(row) for row in self.session.exec(statement).all()]
 
-    # Rows are (email, user id or None, failures, distinct IPs, last attempt), worst first.
-    def failed_logins_by_account(self, since: datetime, min_failures: int) -> list[tuple[str, uuid.UUID | None, int, int, datetime]]:
+    # Rows are (email, user or None, failures, distinct IPs, last attempt), worst first.
+    def failed_logins_by_account(self, since: datetime, min_failures: int) -> list[tuple[str, AppUser | None, int, int, datetime]]:
         failures = func.count()
         statement = (
             select(ActivityLog.email, failures, func.count(func.distinct(ActivityLog.ip_address)), func.max(ActivityLog.created_at))
@@ -88,7 +88,38 @@ class ActivityRepository:
             .order_by(failures.desc())
             .limit(50)
         )
-        return [(email, self.find_user_id(email), n, ips, last) for email, n, ips, last in self.session.exec(statement).all()]
+        return [(email, self.find_user(email), n, ips, last) for email, n, ips, last in self.session.exec(statement).all()]
+
+    def find_user(self, email: str) -> AppUser | None:
+        return self.session.exec(select(AppUser).where(AppUser.email == email)).first()
+
+    # The newest hostile events from any address, for the security view.
+    def recent_hostile(self, since: datetime, limit: int) -> list[ActivityLog]:
+        statement = select(ActivityLog).where(ActivityLog.action.in_(HOSTILE), ActivityLog.created_at >= since).order_by(ActivityLog.created_at.desc()).limit(limit)
+        return list(self.session.exec(statement).all())
+
+    # Newest first; used to describe the addresses listed in the report (which emails they tried, which browser).
+    def hostile_for_ips(self, since: datetime, ips: list[str]) -> list[ActivityLog]:
+        if not ips:
+            return []
+        statement = (
+            select(ActivityLog)
+            .where(ActivityLog.action.in_(HOSTILE), ActivityLog.created_at >= since, ActivityLog.ip_address.in_(ips))
+            .order_by(ActivityLog.created_at.desc())
+            .limit(2000)
+        )
+        return list(self.session.exec(statement).all())
+
+    def failed_logins_for_emails(self, since: datetime, emails: list[str]) -> list[ActivityLog]:
+        if not emails:
+            return []
+        statement = (
+            select(ActivityLog)
+            .where(ActivityLog.action.in_(FAILED_LOGINS), ActivityLog.created_at >= since, ActivityLog.email.in_(emails))
+            .order_by(ActivityLog.created_at.desc())
+            .limit(2000)
+        )
+        return list(self.session.exec(statement).all())
 
     # SQLModel needs timezone-aware datetimes; a day starts at 00:00 UTC.
     @staticmethod

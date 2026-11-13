@@ -218,7 +218,7 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 | FR-49 | An admin shall be able to export users, tasks and the activity log as CSV using the current filters. Files use UTF-8 with BOM, cells starting with `=`, `+`, `-` or `@` are escaped, and at most 10,000 rows are exported. | Beta | US-30 |
 | FR-50 | An admin shall be able to purge activity entries older than a given number of days. Entries older than `ACTIVITY_RETENTION_DAYS` (default 90, `0` = keep forever) are also deleted automatically, checked at login at most once an hour. | Beta | US-30 |
 | FR-51 | The system shall log security events in the activity log with IP address and user agent: `auth_rejected` (malformed, forged or wrongly signed token), `access_denied` (`403`) and `token_reuse_detected`. Expired or missing tokens are not logged; at most 30 events per IP per minute are stored; control characters are removed from logged text. | Beta | US-31 |
-| FR-52 | An admin shall get a security report for a time window: failed logins and rejected tokens by IP address and by account, and accounts with at least a given number of failures. | Beta | US-31 |
+| FR-52 | An admin shall get a security report for a time window: failed logins and rejected tokens by IP address (event types, emails tried, browser) and by account (name, banned or locked state, addresses, browser), accounts with at least a given number of failures, and the 50 newest hostile events with user, reason, address and browser. | Beta | US-31 |
 
 ### 3.4.1 Categories and sessions — Beta
 

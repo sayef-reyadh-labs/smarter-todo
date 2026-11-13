@@ -1,6 +1,8 @@
 # Business rules for the admin endpoints (roles, bans, bulk actions, stats, exports, purge); no HTTP here.
 import uuid
-from datetime import timedelta
+from collections import Counter, defaultdict
+from collections.abc import Iterable
+from datetime import datetime, timedelta, timezone
 
 from app.activity.filters import ActivityFilters
 
@@ -39,6 +41,22 @@ from app.rbac import SystemRole
 from app.tasks.models import Task
 
 
+# Up to `limit` different non-empty values, in the order they first appear.
+def _first_distinct(values: Iterable[str | None], limit: int = 5) -> list[str]:
+    seen: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.append(value)
+            if len(seen) == limit:
+                break
+    return seen
+
+
+# SQLite returns naive datetimes; they are stored as UTC.
+def _as_utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
 class AdminService:
     def __init__(self, repo: AdminRepository, tokens: RefreshTokenRepository, activity: ActivityRepository) -> None:
         self.repo = repo
@@ -63,19 +81,50 @@ class AdminService:
         cutoff = utc_now() - timedelta(days=days)
         return PurgeResult(deleted=self.activity.purge_before(cutoff), cutoff=cutoff)
 
-    # Failed logins and hostile requests (bad tokens, denied access) grouped by address and by account.
+    # Failed logins and hostile requests (bad tokens, denied access) grouped by address and by account, plus the newest events.
     def security_report(self, hours: int, min_failures: int) -> SecurityReport:
         since = utc_now() - timedelta(hours=hours)
+        ip_rows = self.activity.hostile_by_ip(since, min_failures)
+        account_rows = self.activity.failed_logins_by_account(since, min_failures)
+
+        events_by_ip: dict[str, list] = defaultdict(list)
+        for event in self.activity.hostile_for_ips(since, [row[0] for row in ip_rows]):
+            events_by_ip[event.ip_address].append(event)
+        events_by_email: dict[str, list] = defaultdict(list)
+        for event in self.activity.failed_logins_for_emails(since, [row[0] for row in account_rows]):
+            events_by_email[event.email].append(event)
+
+        now = utc_now()
         return SecurityReport(
             since=since,
             ips=[
-                SuspiciousIp(ip_address=ip, failures=n, distinct_accounts=accounts, last_seen=last)
-                for ip, n, accounts, last in self.activity.hostile_by_ip(since, min_failures)
+                SuspiciousIp(
+                    ip_address=ip,
+                    failures=n,
+                    distinct_accounts=accounts,
+                    last_seen=last,
+                    kinds=dict(Counter(e.action for e in events_by_ip[ip])),
+                    emails=_first_distinct(e.email for e in events_by_ip[ip]),
+                    user_agent=next((e.user_agent for e in events_by_ip[ip] if e.user_agent), None),
+                )
+                for ip, n, accounts, last in ip_rows
             ],
             accounts=[
-                SuspiciousAccount(email=email, user_id=user_id, failures=n, distinct_ips=ips, last_seen=last)
-                for email, user_id, n, ips, last in self.activity.failed_logins_by_account(since, min_failures)
+                SuspiciousAccount(
+                    email=email,
+                    user_id=user.id if user else None,
+                    name=user.name if user else None,
+                    is_banned=bool(user and user.is_banned),
+                    is_locked=bool(user and user.locked_until and _as_utc(user.locked_until) > now),
+                    failures=n,
+                    distinct_ips=ips,
+                    ip_addresses=_first_distinct(e.ip_address for e in events_by_email[email]),
+                    user_agent=next((e.user_agent for e in events_by_email[email] if e.user_agent), None),
+                    last_seen=last,
+                )
+                for email, user, n, ips, last in account_rows
             ],
+            events=[ActivityRead.model_validate(e) for e in self.activity.recent_hostile(since, 50)],
         )
 
     # ---- users ----------------------------------------------------------------------------------------------

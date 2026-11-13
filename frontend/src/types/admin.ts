@@ -111,9 +111,28 @@ export type BulkResult = { affected: number; skipped: number }
 
 export type PurgeResult = { deleted: number; cutoff: string }
 
-export type SuspiciousIp = { ip_address: string; failures: number; distinct_accounts: number; last_seen: string }
-export type SuspiciousAccount = { email: string; user_id: string | null; failures: number; distinct_ips: number; last_seen: string }
-export type SecurityReport = { since: string; ips: SuspiciousIp[]; accounts: SuspiciousAccount[] }
+export type SuspiciousIp = {
+  ip_address: string
+  failures: number
+  distinct_accounts: number
+  last_seen: string
+  kinds: Record<string, number>
+  emails: string[]
+  user_agent: string | null
+}
+export type SuspiciousAccount = {
+  email: string
+  user_id: string | null
+  name: string | null
+  is_banned: boolean
+  is_locked: boolean
+  failures: number
+  distinct_ips: number
+  ip_addresses: string[]
+  user_agent: string | null
+  last_seen: string
+}
+export type SecurityReport = { since: string; ips: SuspiciousIp[]; accounts: SuspiciousAccount[]; events: AdminActivity[] }
 
 // Everything the user drawer shows about one person.
 export type AdminUserDetail = {
