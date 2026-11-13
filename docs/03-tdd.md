@@ -114,7 +114,7 @@ backend/
     auth/              # /api/v1/auth/* (signup, login, refresh, logout): router, schemas, models (AppUser, RefreshToken), service, repository, dependencies (get_current_user)
     users/             # /api/v1/users/me (profile, change name, change password): router, schemas, service, dependencies
     admin/             # /api/v1/admin/* (require_admin): router, schemas, service, repository (queries across all users and tasks), dependencies
-    groups/            # (Beta) /api/v1/groups/* (members and group tasks)
+    groups/            # /api/v1/groups/* (members and group tasks): router, schemas, models (TaskGroup, GroupMember), service, repository, dependencies (get_membership, require_group_owner)
   alembic/             # migration scripts
   alembic.ini          # (Beta)
   requirements.txt
@@ -389,10 +389,10 @@ The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like t
 | `GET` | `/api/v1/groups/{group_id}/members` | Member | — | `200` `MemberRead[]` | `404` | FR-28 |
 | `POST` | `/api/v1/groups/{group_id}/members` | Owner | `MemberAdd` | `201` `MemberRead` | `403`, `404`, `409` | FR-28 |
 | `DELETE` | `/api/v1/groups/{group_id}/members/{user_id}` | Owner, or the member themself | — | `204` | `400` (owner leaving), `403`, `404` | FR-29 |
-| `GET` | `/api/v1/groups/{group_id}/tasks?offset&limit` | Member | — | `200` `TaskRead[]` | `404` | FR-30 |
-| `POST` | `/api/v1/groups/{group_id}/tasks` | Member | `TaskCreate` | `201` `TaskRead` | `404`, `422` | FR-30, FR-31 |
-| `GET` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member | — | `200` `TaskRead` | `404` | FR-30 |
-| `PATCH` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member | `TaskUpdate` | `200` `TaskRead` | `404`, `422` | FR-30, FR-31 |
+| `GET` | `/api/v1/groups/{group_id}/tasks?offset&limit` | Member | — | `200` `GroupTaskPage` | `404` | FR-30 |
+| `POST` | `/api/v1/groups/{group_id}/tasks` | Member | `GroupTaskCreate` | `201` `GroupTaskRead` | `404`, `409`, `422` | FR-30, FR-31 |
+| `GET` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member | — | `200` `GroupTaskRead` | `404` | FR-30 |
+| `PATCH` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Member | `GroupTaskUpdate` | `200` `GroupTaskRead` | `404`, `409`, `422` | FR-30, FR-31 |
 | `DELETE` | `/api/v1/groups/{group_id}/tasks/{task_id}` | Task creator or owner | — | `204` | `403`, `404` | FR-32 |
 
 ### 6.3 Examples
@@ -534,7 +534,7 @@ flowchart LR
 
 - Hash with `pwdlib` (Argon2). Verify on login; never log or return the hash.
 - Unknown email and wrong password both return `401 "Invalid email or password"`, so emails cannot be discovered.
-- Wrong password: `failed_login_count += 1`. At 5, set `locked_until = now + 15 min` and reset the count. While `locked_until > now`, login returns `429`. A successful login resets the count.
+- Wrong password: `failed_login_count += 1`. At 5, set `locked_until = now + 15 min` and reset the count. While `locked_until > now`, login returns `429`. A successful login resets the count. An unknown email never counts, so a stranger cannot lock someone else out by guessing emails.
 - Stored in the database (not in memory) because serverless functions do not share memory.
 
 ### 10.3 Permission dependencies
@@ -555,18 +555,18 @@ def get_current_user(creds=Depends(bearer), session: Session = Depends(get_sessi
 
 def require_admin(user: AppUser = Depends(get_current_user)) -> AppUser:
     if user.role != "admin":
-        raise HTTPException(403, "Admin only")
+        raise ForbiddenError("Admin only")
     return user
 
-def get_membership(group_id: int, user=Depends(get_current_user), session=Depends(get_session)) -> GroupMember:
-    member = session.get(GroupMember, (group_id, user.id))
+def get_membership(group_id: uuid.UUID, user: CurrentUser, session: SessionDep) -> GroupMember:
+    member = GroupRepository(session).get_membership(group_id, user.id)
     if member is None:
-        raise HTTPException(404, "Group not found")   # hide groups the user is not in
+        raise NotFoundError("Group not found")   # hide groups the user is not in
     return member
 
-def require_group_owner(member: GroupMember = Depends(get_membership)) -> GroupMember:
+def require_group_owner(member: MemberDep) -> GroupMember:
     if member.role != "owner":
-        raise HTTPException(403, "Group owner only")
+        raise ForbiddenError("Group owner only")
     return member
 ```
 
@@ -619,7 +619,7 @@ stats = AdminStats(
 | Tokens | Section 10.1; `JWT_SECRET` only in env vars |
 | Cookies | `HttpOnly`, `Secure`, `SameSite=Strict`, path-limited |
 | CORS | Not enabled: frontend and API share the Vercel origin; locally Vite proxies `/api` |
-| Security headers | Added for all routes in `vercel.json` (below) |
+| Security headers | Added for all routes in the top-level `headers` of `vercel.json` (below) |
 | Brute force | Login lockout (section 10.2) |
 | Injection | SQLModel/SQLAlchemy parameterised queries only |
 | Errors | Catch-all handler returns a generic `500`; details only in logs |

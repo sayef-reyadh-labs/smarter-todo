@@ -2,7 +2,7 @@
 
 A task app for students: keep your own to-do list, and share task lists with your team for group projects. Built as a REST API with FastAPI and a React frontend, deployed on Vercel.
 
-> **Status:** MVP done; Beta in progress. Sign up, log in, private tasks, a profile page and an admin dashboard work. Group tasks and security hardening are planned next.
+> **Status:** MVP and Beta features are built: sign up and log in, private tasks, a profile page, an admin dashboard, groups with shared and assigned tasks, login lockout and security headers.
 
 ## Features
 
@@ -195,8 +195,11 @@ Never commit secrets or `.env` files. See [TDD, section 8](docs/03-tdd.md#8-conf
 
 1. Push the repo to GitHub.
 2. Go to https://vercel.com/new, import the repo and click **Deploy**. Keep **Root Directory** as `./`.
+3. Add the environment variables from the table above (at least `DATABASE_URL` or the Supabase integration, and `JWT_SECRET`).
+4. Run `alembic upgrade head` against Supabase (see *Changing the database*), then promote the first admin (see *Making someone an admin*).
+5. Smoke test the production URL: sign up, log in, add a task, create a group and add a member, open `/admin` as the admin, and check `/api/docs`.
 
-Every push to `main` redeploys automatically. Or deploy from your machine with `vercel --prod`.
+Every push to `main` redeploys automatically. Or deploy from your machine with `vercel --prod`. Run migrations **before** merging code that needs a new schema.
 
 ## Contributing
 
