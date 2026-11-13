@@ -1,16 +1,35 @@
-// Loads one page of a list and reloads it when the page or a filter changes; a newer request wins over an older one.
-import { useCallback, useEffect, useRef, useState } from "react"
+// One page of a list whose page and filters live in the page address, so a filtered view can be bookmarked and the back button works.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "react-router"
 import type { Page } from "../types/page"
 
 type Fetcher<T, F> = (offset: number, limit: number, filters: F) => Promise<Page<T>>
 
-export function usePagedList<T, F>(fetcher: Fetcher<T, F>, initialFilters: F, pageSize = 10) {
+type Options<F> = {
+  prefix: string // keeps the parameters of different lists apart, e.g. "t_status"
+  keys: readonly (keyof F & string)[]
+  pageSize?: number
+}
+
+export function usePagedList<T, F extends object>(fetcher: Fetcher<T, F>, { prefix, keys, pageSize = 10 }: Options<F>) {
+  const [params, setParams] = useSearchParams()
   const [data, setData] = useState<Page<T> | null>(null)
-  const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState<F>(initialFilters)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const latest = useRef(0)
+
+  // Only this list's own parameters decide when to reload, not the rest of the address.
+  const signature = [`${prefix}_page`, ...keys.map((k) => `${prefix}_${k}`)].map((name) => params.get(name) ?? "").join("\u0001")
+  const page = Math.max(1, Number(params.get(`${prefix}_page`)) || 1)
+  const filters = useMemo(() => {
+    const found: Record<string, string> = {}
+    for (const key of keys) {
+      const value = params.get(`${prefix}_${key}`)
+      if (value) found[key] = value
+    }
+    return found as F
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature])
 
   const load = useCallback(
     async (p: number, f: F) => {
@@ -34,11 +53,31 @@ export function usePagedList<T, F>(fetcher: Fetcher<T, F>, initialFilters: F, pa
     load(page, filters)
   }, [load, page, filters])
 
+  const write = (change: (next: URLSearchParams) => void) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        change(next)
+        return next
+      },
+      { replace: true },
+    )
+
   // Changing a filter goes back to the first page.
-  const changeFilters = (patch: Partial<F>) => {
-    setPage(1)
-    setFilters((prev) => ({ ...prev, ...patch }))
-  }
+  const changeFilters = (patch: Partial<F>) =>
+    write((next) => {
+      for (const [key, value] of Object.entries(patch)) {
+        if (value) next.set(`${prefix}_${key}`, String(value))
+        else next.delete(`${prefix}_${key}`)
+      }
+      next.delete(`${prefix}_page`)
+    })
+
+  const setPage = (p: number) =>
+    write((next) => {
+      if (p > 1) next.set(`${prefix}_page`, String(p))
+      else next.delete(`${prefix}_page`)
+    })
 
   const reload = () => load(page, filters)
 

@@ -6,11 +6,12 @@ import { useEffect, useState } from "react"
 type Props = {
   placeholder: string
   onSearch: (text: string | undefined) => void
+  initial?: string
   width?: number
 }
 
-export function SearchInput({ placeholder, onSearch, width = 220 }: Props) {
-  const [text, setText] = useState("")
+export function SearchInput({ placeholder, onSearch, initial = "", width = 220 }: Props) {
+  const [text, setText] = useState(initial)
 
   useEffect(() => {
     const timer = setTimeout(() => onSearch(text.trim() || undefined), 350)
