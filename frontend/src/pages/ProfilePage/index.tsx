@@ -3,6 +3,7 @@ import { App as AntApp, Button, Card, Form, Input, Tag } from "antd"
 import { useState } from "react"
 import { useNavigate } from "react-router"
 import { PageHeader } from "../../components/PageHeader"
+import { SessionsCard } from "../../components/SessionsCard"
 import { useAuth } from "../../context/AuthContext"
 import { apiService } from "../../services/api"
 import { nameRules, newPasswordRules } from "../../utils/authForm"
@@ -65,7 +66,7 @@ export function ProfilePage() {
         </Form>
       </Card>
 
-      <Card title="Change password">
+      <Card title="Change password" style={{ marginBottom: 24 }}>
         <Form layout="vertical" onFinish={changePassword}>
           <Form.Item label="Current password" name="current_password" rules={[{ required: true, message: "Enter your current password" }]}>
             <Input.Password autoComplete="current-password" />
@@ -92,6 +93,8 @@ export function ProfilePage() {
           </Button>
         </Form>
       </Card>
+
+      <SessionsCard />
     </div>
   )
 }

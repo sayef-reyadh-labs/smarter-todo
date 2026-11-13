@@ -28,3 +28,13 @@ export type PasswordChangeInput = {
   current_password: string
   new_password: string
 }
+
+// One login session (a browser or device); current is the one making the request.
+export type Session = {
+  id: string
+  user_agent: string | null
+  ip_address: string | null
+  started_at: string
+  last_used_at: string
+  current: boolean
+}
