@@ -2,3 +2,5 @@ fastapi[standard]>=0.141.1
 sqlmodel>=0.0.22
 psycopg[binary]>=3.2
 alembic>=1.13
+pyjwt>=2.8
+pwdlib[argon2]>=0.2

@@ -1,4 +1,4 @@
-"""task.id from integer to uuid
+"""task table with uuid id (also converts an existing integer id)
 
 Revision ID: 0001_uuid_task_id
 Revises:
@@ -22,7 +22,20 @@ def _id_type() -> str | None:
 
 
 def upgrade() -> None:
-    # SQLite (local dev) is recreated by create_all; fresh databases already get a uuid id.
+    # A fresh database (a new SQLite file, a new Supabase project) has no task table yet.
+    if _id_type() is None:
+        op.create_table(
+            "task",
+            sa.Column("id", sa.Uuid(), primary_key=True),
+            sa.Column("title", sa.String(200), nullable=False),
+            sa.Column("description", sa.String(1000)),
+            sa.Column("due_date", sa.Date()),
+            sa.Column("is_completed", sa.Boolean(), nullable=False),
+            sa.Column("created_at", sa.DateTime(), nullable=False),
+            sa.Column("updated_at", sa.DateTime(), nullable=False),
+        )
+        return
+    # A table from before uuid ids exists only on PostgreSQL (Supabase); SQLite files are recreated.
     if op.get_bind().dialect.name != "postgresql" or _id_type() not in {"INTEGER", "BIGINT", "SMALLINT"}:
         return
     op.execute("ALTER TABLE task ALTER COLUMN id DROP DEFAULT")

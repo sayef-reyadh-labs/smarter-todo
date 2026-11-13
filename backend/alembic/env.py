@@ -6,8 +6,9 @@ from sqlalchemy import pool
 from sqlmodel import SQLModel
 
 from alembic import context
+from app.auth import models as auth_models  # noqa: F401  (registers the tables on SQLModel.metadata)
 from app.config import _to_sqlalchemy_url, settings
-from app.tasks import models  # noqa: F401  (registers the tables on SQLModel.metadata)
+from app.tasks import models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -59,6 +60,14 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # A caller (such as a rolled-back dry run) can pass its own connection in config.attributes.
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

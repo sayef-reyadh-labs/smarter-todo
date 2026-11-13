@@ -4,15 +4,16 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException
 
+from app.auth.dependencies import CurrentUser
 from app.database import SessionDep
 from app.tasks.models import Task
 from app.tasks.repository import TaskRepository
 from app.tasks.service import TaskService
 
 
-# Builds the service for this request: session -> repository -> service.
-def get_task_service(session: SessionDep) -> TaskService:
-    return TaskService(TaskRepository(session))
+# Builds the service for this request: session + logged-in user -> repository -> service.
+def get_task_service(session: SessionDep, user: CurrentUser) -> TaskService:
+    return TaskService(TaskRepository(session, user.id))
 
 
 ServiceDep = Annotated[TaskService, Depends(get_task_service)]
