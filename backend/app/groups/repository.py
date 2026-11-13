@@ -5,6 +5,7 @@ from sqlmodel import Session, func, select, update
 
 from app.auth.models import AppUser
 from app.groups.models import GroupMember, TaskGroup
+from app.rbac import GroupRole
 from app.tasks.models import Task
 
 
@@ -18,7 +19,7 @@ class GroupRepository:
     def create_group(self, group: TaskGroup) -> TaskGroup:
         self.session.add(group)
         self.session.flush()  # the group row must exist before the membership that points to it
-        self.session.add(GroupMember(group_id=group.id, user_id=group.created_by, role="owner"))
+        self.session.add(GroupMember(group_id=group.id, user_id=group.created_by, role=GroupRole.OWNER.value))
         self.session.commit()
         self.session.refresh(group)
         return group
