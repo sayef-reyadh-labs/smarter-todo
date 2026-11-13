@@ -3,6 +3,7 @@ import type { LoginInput, PasswordChangeInput, SignupInput, TokenResponse, User 
 import type { AdminStats, AdminTask, AdminUser, Page } from "../types/admin"
 import type { Group, GroupTask, GroupTaskInput, GroupTaskPatch, Member } from "../types/group"
 import type { Task, TaskInput, TaskPage, TaskPatch } from "../types/task"
+import { HttpStatus } from "../utils/httpStatus"
 
 export const PAGE_SIZE = 20
 
@@ -61,7 +62,7 @@ const refreshAccessToken = (): Promise<boolean> => {
 const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
   let res = await send(url, options)
   // An expired access token: get a new one from the refresh cookie and try once more.
-  if (res.status === 401 && !url.startsWith(AUTH)) {
+  if (res.status === HttpStatus.Unauthorized && !url.startsWith(AUTH)) {
     if (await refreshAccessToken()) {
       res = await send(url, options)
     } else {
@@ -70,7 +71,7 @@ const request = async <T,>(url: string, options?: RequestInit): Promise<T> => {
     }
   }
   if (!res.ok) throw new Error(await errorMessage(res))
-  return res.status === 204 ? (undefined as T) : await res.json()
+  return res.status === HttpStatus.NoContent ? (undefined as T) : await res.json()
 }
 
 const post = <T,>(url: string, data?: unknown) =>

@@ -1,5 +1,6 @@
 # HTTP layer for /api/v1/groups: groups, members and group tasks. Outsiders get 404, members without the RBAC permission get 403.
 import uuid
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -35,7 +36,7 @@ CanAddMember = Annotated[GroupMember, needs(Permission.GROUP_MEMBERS_ADD)]
 
 
 # Create a group; the caller becomes its owner.
-@router.post("", response_model=GroupRead, status_code=201)
+@router.post("", response_model=GroupRead, status_code=HTTPStatus.CREATED)
 def create_group(data: GroupCreate, user: CurrentUser, service: GroupServiceDep) -> GroupRead:
     return service.create_group(user, data)
 
@@ -57,7 +58,7 @@ def rename_group(member: CanRename, data: GroupUpdate, service: GroupServiceDep)
 
 
 # Deleting a group also deletes its tasks and memberships.
-@router.delete("/{group_id}", status_code=204)
+@router.delete("/{group_id}", status_code=HTTPStatus.NO_CONTENT)
 def delete_group(member: CanDelete, service: GroupServiceDep) -> None:
     service.delete_group(member)
 
@@ -68,13 +69,13 @@ def list_members(member: MemberDep, service: GroupServiceDep) -> list[MemberRead
 
 
 # Add a member by email: 404 for an unknown email, 409 if they are already in the group.
-@router.post("/{group_id}/members", response_model=MemberRead, status_code=201)
+@router.post("/{group_id}/members", response_model=MemberRead, status_code=HTTPStatus.CREATED)
 def add_member(member: CanAddMember, data: MemberAdd, service: GroupServiceDep) -> MemberRead:
     return service.add_member(member.group_id, data)
 
 
 # The owner removes a member, or a member removes themself (leaves); the owner cannot leave (400).
-@router.delete("/{group_id}/members/{user_id}", status_code=204)
+@router.delete("/{group_id}/members/{user_id}", status_code=HTTPStatus.NO_CONTENT)
 def remove_member(member: MemberDep, user: CurrentUser, user_id: uuid.UUID, service: GroupServiceDep) -> None:
     service.remove_member(member, user, user_id)
 
@@ -89,7 +90,7 @@ def list_group_tasks(
 
 
 # 422 when assignee_id is not a member of the group.
-@router.post("/{group_id}/tasks", response_model=GroupTaskRead, status_code=201, dependencies=[needs(Permission.GROUP_TASKS_CREATE)])
+@router.post("/{group_id}/tasks", response_model=GroupTaskRead, status_code=HTTPStatus.CREATED, dependencies=[needs(Permission.GROUP_TASKS_CREATE)])
 def create_group_task(data: GroupTaskCreate, service: GroupTaskServiceDep) -> Task:
     return service.create_task(data)
 
@@ -105,6 +106,6 @@ def update_group_task(task_id: uuid.UUID, data: GroupTaskUpdate, service: GroupT
 
 
 # Only the task's creator or the group owner can delete it.
-@router.delete("/{group_id}/tasks/{task_id}", status_code=204)
+@router.delete("/{group_id}/tasks/{task_id}", status_code=HTTPStatus.NO_CONTENT)
 def delete_group_task(task_id: uuid.UUID, service: GroupTaskServiceDep) -> None:
     service.delete_task(service.get_task(task_id))

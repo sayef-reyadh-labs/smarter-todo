@@ -1,4 +1,6 @@
 # HTTP layer for /api/v1/users/me: the profile of whoever is logged in.
+from http import HTTPStatus
+
 from fastapi import APIRouter
 
 from app.auth.dependencies import CurrentUser
@@ -22,6 +24,6 @@ def update_me(user: CurrentUser, data: ProfileUpdate, service: UserServiceDep) -
 
 
 # 204 on success; 400 if the current password is wrong. All sessions are logged out.
-@router.post("/me/password", status_code=204)
+@router.post("/me/password", status_code=HTTPStatus.NO_CONTENT)
 def change_password(user: CurrentUser, data: PasswordChange, service: UserServiceDep) -> None:
     service.change_password(user, data)

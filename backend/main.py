@@ -1,5 +1,6 @@
 # App entry point: creates the FastAPI app, mounts the routers, maps errors to JSON and serves the frontend build.
 import logging
+from http import HTTPStatus
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -31,7 +32,7 @@ app.include_router(groups_router)
 # Services raise AppError subclasses (400, 401, 403, 404, 409, 422, 429); the status code comes from the class.
 @app.exception_handler(AppError)
 async def app_error(request: Request, exc: AppError) -> JSONResponse:
-    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == HTTPStatus.UNAUTHORIZED else None
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message}, headers=headers)
 
 
@@ -39,7 +40,7 @@ async def app_error(request: Request, exc: AppError) -> JSONResponse:
 @app.exception_handler(Exception)
 async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": "Internal server error"})
 
 
 @app.get("/api/health")

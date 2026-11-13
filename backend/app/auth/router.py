@@ -1,4 +1,5 @@
 # HTTP layer for /api/v1/auth: reads and writes the refresh token cookie and calls the auth service.
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Response
@@ -32,7 +33,7 @@ def _token_response(access_token: str) -> TokenResponse:
 
 
 # Create an account; it starts with the role "user". Logging in is a separate call.
-@router.post("/signup", response_model=UserRead, status_code=201)
+@router.post("/signup", response_model=UserRead, status_code=HTTPStatus.CREATED)
 def signup(data: SignupRequest, service: AuthServiceDep) -> AppUser:
     return service.signup(data)
 
@@ -58,7 +59,7 @@ def refresh(
 
 
 # Revoke the refresh token and clear the cookie; the access token simply expires.
-@router.post("/logout", status_code=204)
+@router.post("/logout", status_code=HTTPStatus.NO_CONTENT)
 def logout(
     response: Response,
     service: AuthServiceDep,

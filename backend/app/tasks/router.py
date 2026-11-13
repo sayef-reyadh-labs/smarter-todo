@@ -1,4 +1,5 @@
 # HTTP layer for /api/v1/tasks: takes the request, calls the service, returns the response.
+from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Query
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
 
 # Create a task; it starts as not completed.
-@router.post("", response_model=TaskRead, status_code=201)
+@router.post("", response_model=TaskRead, status_code=HTTPStatus.CREATED)
 def create_task(data: TaskCreate, service: ServiceDep) -> Task:
     return service.create_task(data)
 
@@ -39,6 +40,6 @@ def update_task(task: TaskDep, data: TaskUpdate, service: ServiceDep) -> Task:
 
 
 # Delete a task; 204 means success with no response body.
-@router.delete("/{task_id}", status_code=204)
+@router.delete("/{task_id}", status_code=HTTPStatus.NO_CONTENT)
 def delete_task(task: TaskDep, service: ServiceDep) -> None:
     service.delete_task(task)
