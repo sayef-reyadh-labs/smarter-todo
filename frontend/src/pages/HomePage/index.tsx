@@ -51,6 +51,13 @@ export function HomePage() {
     document.title = pending > 0 ? `(${pending}) Smarter Todo` : "Smarter Todo"
   }, [tasks])
 
+  // Other pages show the plain title, without this page's task count.
+  useEffect(() => {
+    return () => {
+      document.title = "Smarter Todo"
+    }
+  }, [])
+
   // Runs a change, refreshes the list and reports the result; returns false on failure.
   const run = async (action: () => Promise<unknown>, success: string): Promise<boolean> => {
     try {
