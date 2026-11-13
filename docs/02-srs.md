@@ -208,6 +208,8 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 | FR-37 | A banned user shall get `403` ("Account banned") on login and on every authenticated request, even with an access token that has not expired yet. | Beta | US-21 |
 | FR-38 | An admin shall be able to unban a user; the user can then log in again. The user's tasks and group memberships are kept while banned. | Beta | US-22 |
 | FR-39 | The admin user list shall show each user's status (`active` / `banned`), ban date and ban reason. | Beta | US-21 |
+| FR-42 | The system shall record user activity in an activity log: signup, login (success, failed, locked, blocked), logout, password and profile changes, task, group, member and group task actions, and admin actions. Each entry has the user (and the email at that time), the action, an optional entity and short detail, the client IP address, the browser (user agent) and the time. Passwords, tokens and hashes are never recorded, and a failure to write an entry never fails the request. | Beta | US-25 |
+| FR-43 | An admin shall be able to list the activity log (paginated, newest first) and filter it by user and by action; a non-admin gets `403`. The admin dashboard shows it. | Beta | US-25 |
 
 ### 3.5 Groups and group tasks — Beta
 
@@ -460,4 +462,5 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 | US-20 | FR-35 | `GET /api/v1/admin/stats` | Beta |
 | US-21 | FR-36, FR-37, FR-39 | `POST /api/v1/admin/users/{id}/ban`, `GET /api/v1/admin/users` | Beta |
 | US-22 | FR-38 | `POST /api/v1/admin/users/{id}/unban` | Beta |
+| US-25 | FR-42, FR-43 | `GET /api/v1/admin/activity` | Beta |
 | US-23, US-24 | FR-16, FR-40, FR-41 | `GET` / `PATCH /api/v1/users/me`, `POST /api/v1/users/me/password` | Beta |
