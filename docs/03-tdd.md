@@ -383,16 +383,19 @@ In the MVP no login is needed. In the Beta the same task endpoints require a tok
 
 | Method | Path | Who | Body | Success | Errors | FR |
 |---|---|---|---|---|---|---|
-| `GET` | `/api/v1/admin/users?offset&limit` | Admin | — | `200` `AdminUserPage` | `403` | FR-21, FR-39 |
+| `GET` | `/api/v1/admin/users?offset&limit&q&role&status` | Admin | — | `200` `AdminUserPage` | `403`, `422` | FR-21, FR-39, FR-44 |
 | `PATCH` | `/api/v1/admin/users/{user_id}/role` | Admin | `RoleUpdate` | `200` `UserRead` | `400` (own role), `403`, `404` | FR-22 |
-| `GET` | `/api/v1/admin/tasks?offset&limit` | Admin | — | `200` `AdminTaskPage` | `403` | FR-23 |
+| `GET` | `/api/v1/admin/tasks?offset&limit&owner_id&group_id&scope&status&q` | Admin | — | `200` `AdminTaskPage` | `403`, `422` | FR-23, FR-44 |
+| `GET` | `/api/v1/admin/groups?offset&limit&owner_id&q` | Admin (`ADMIN_GROUPS_VIEW`) | — | `200` `AdminGroupPage` | `403`, `422` | FR-45 |
 | `DELETE` | `/api/v1/admin/tasks/{task_id}` | Admin | — | `204` | `403`, `404` | FR-23 |
 | `GET` | `/api/v1/admin/stats` | Admin | — | `200` `AdminStats` | `403` | FR-35 |
 | `POST` | `/api/v1/admin/users/{user_id}/ban` | Admin | `BanRequest` | `200` `AdminUserRead` | `400` (self / other admin), `403`, `404` | FR-36 |
 | `POST` | `/api/v1/admin/users/{user_id}/unban` | Admin | — | `200` `AdminUserRead` | `403`, `404` | FR-38 |
-| `GET` | `/api/v1/admin/activity?offset&limit&user_id&action` | Admin (`ADMIN_ACTIVITY_VIEW`) | — | `200` `ActivityPage` | `403`, `422` (unknown action) | FR-42, FR-43 |
+| `GET` | `/api/v1/admin/activity?offset&limit&user_id&action&q&date_from&date_to` | Admin (`ADMIN_ACTIVITY_VIEW`) | — | `200` `ActivityPage` | `403`, `422` (unknown action, bad date) | FR-42, FR-43 |
 
-The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like the task list. `AdminUserRead` is `UserRead` plus `is_banned`, `banned_at`, `ban_reason` and a computed `status` (`active` / `banned`), so the dashboard can show who is banned (FR-39). `AdminTaskRead` is `TaskRead` plus `owner_id`.
+The admin lists answer with a page (`items`, `total`, `offset`, `limit`), like the task list. `AdminUserRead` is `UserRead` plus `is_banned`, `banned_at`, `ban_reason` and a computed `status` (`active` / `banned`), so the dashboard can show who is banned (FR-39). `AdminTaskRead` is `TaskRead` plus `owner_id`, `owner_email`, `group_id` and `group_name`.
+
+**List filters (FR-44):** every filter is an optional query parameter; they combine with AND and `total` counts the filtered rows. They are small frozen dataclasses built by FastAPI dependencies (`app/admin/filters.py`, `app/activity/filters.py`), and the repositories turn them into `WHERE` clauses, so a new filter means one field, one parameter and one clause. Text search uses a case-insensitive `LIKE` with `%` and `_` escaped. `overdue` means not completed with a due date before today (UTC). `date_from` and `date_to` are inclusive UTC days. The dashboard's user and group pickers search the server as you type (`q`, 20 results).
 
 **Groups**
 
