@@ -226,7 +226,7 @@ Every Admin, Group owner and Group member is also a User, so they can do everyth
 |---|---|---|---|
 | FR-53 | A user shall be able to create, list, rename and delete personal categories (name 1–50 characters, unique per user ignoring case, at most 30 per user; a duplicate or the 31st returns `409`). Deleting a category keeps its tasks, which become uncategorized. Group tasks have no category. | Beta | US-27 |
 | FR-54 | A personal task may have a `category_id` that must belong to the caller (`422` otherwise). The task list can be filtered by `category_id`, `uncategorized`, `status` (`open` / `done` / `overdue`) and searched by title or description text (`q`). | Beta | US-27 |
-| FR-55 | Each login shall create a session (device, IP address, start and last use). A user shall be able to list their sessions, log out one, log out all others, or log out everywhere. A logged-out device stays valid until its access token expires (15 minutes) but cannot refresh. | Beta | US-28 |
+| FR-55 | Each login shall create a session (device, IP address, start and last use). A user shall be able to list their sessions, log out one, log out all others, or log out everywhere. A logged-out device stays valid until its access token expires (5 minutes) but cannot refresh. | Beta | US-28 |
 | FR-56 | The user's last login time shall be stored and shown to admins. | Beta | US-30 |
 
 ### 3.5 Groups and group tasks — Beta
@@ -336,7 +336,7 @@ A new task always starts as `Pending` (`is_completed = false`). Editing other fi
 | NFR-09 | Usability (API) | Every endpoint is listed in `/api/docs` with request and response schemas. | MVP |
 | NFR-10 | Deployability | The app runs on Vercel; a push to `main` updates production. | MVP |
 | NFR-11 | Security | Passwords are hashed with Argon2 (random salt per hash) after a server-side pepper is applied; plain passwords are never stored, logged or returned. | Beta |
-| NFR-12 | Security | Access tokens are JWTs signed with a secret of at least 32 bytes from an env var, valid for 15 minutes. | Beta |
+| NFR-12 | Security | Access tokens are JWTs signed with a secret of at least 32 bytes from an env var, valid for 5 minutes. | Beta |
 | NFR-13 | Security | Refresh tokens are random, valid for 7 days, stored only as a hash, and replaced on every refresh. | Beta |
 | NFR-14 | Security | The refresh token cookie is `HttpOnly`, `Secure`, `SameSite=Strict` and limited to path `/api/v1/auth`. | Beta |
 | NFR-15 | Security | Frontend and API share one origin, so CORS stays disabled (no cross-origin access). | Beta |

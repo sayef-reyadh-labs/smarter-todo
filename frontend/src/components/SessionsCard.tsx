@@ -109,7 +109,7 @@ export function SessionsCard() {
         })}
       </Flex>
       <Typography.Paragraph type="secondary" style={{ margin: "16px 0 0" }}>
-        A device you log out stays signed in for up to 15 minutes, until its short-lived access token expires; it cannot renew it.
+        A device you log out stays signed in for up to 5 minutes, until its short-lived access token expires; it cannot renew it.
       </Typography.Paragraph>
     </Card>
   )
