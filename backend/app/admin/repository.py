@@ -1,7 +1,7 @@
 # Data access layer for the admin endpoints: filtered queries across every user, task and group, unlike the owner-scoped task repository.
 import uuid
 
-from sqlmodel import Session, func, or_, select
+from sqlmodel import Session, col, delete, func, or_, select
 
 from app.admin.filters import GroupFilters, TaskFilters, UserFilters
 from app.auth.models import AppUser
@@ -62,11 +62,8 @@ class AdminRepository:
 
     # Each row is (group, owner email, member count, task count).
     def list_groups(self, offset: int, limit: int, filters: GroupFilters) -> list[tuple[TaskGroup, str, int, int]]:
-        members = select(func.count(GroupMember.user_id)).where(GroupMember.group_id == TaskGroup.id).scalar_subquery()
-        tasks = select(func.count(Task.id)).where(Task.group_id == TaskGroup.id).scalar_subquery()
         statement = (
-            select(TaskGroup, AppUser.email, members, tasks)
-            .join(AppUser, AppUser.id == TaskGroup.created_by)
+            self._group_statement()
             .where(*self._group_clauses(filters))
             .order_by(TaskGroup.created_at.desc(), TaskGroup.id.desc())
             .offset(offset)
@@ -74,8 +71,59 @@ class AdminRepository:
         )
         return [(group, email, m, t) for group, email, m, t in self.session.exec(statement).all()]
 
+    def get_group_row(self, group_id: uuid.UUID) -> tuple[TaskGroup, str, int, int] | None:
+        row = self.session.exec(self._group_statement().where(TaskGroup.id == group_id)).first()
+        return None if row is None else (row[0], row[1], row[2], row[3])
+
+    # The group's tasks and memberships go with it.
+    def delete_group(self, group_id: uuid.UUID) -> None:
+        self.session.exec(delete(Task).where(Task.group_id == group_id))
+        self.session.exec(delete(GroupMember).where(GroupMember.group_id == group_id))
+        self.session.exec(delete(TaskGroup).where(TaskGroup.id == group_id))
+        self.session.commit()
+
     def count_groups(self, filters: GroupFilters) -> int:
         return self.count(TaskGroup, *self._group_clauses(filters))
+
+    def users_by_ids(self, ids: list[uuid.UUID]) -> list[AppUser]:
+        return list(self.session.exec(select(AppUser).where(col(AppUser.id).in_(ids))).all())
+
+    # Returns how many of the ids existed and were deleted.
+    def delete_tasks(self, ids: list[uuid.UUID]) -> int:
+        result = self.session.exec(delete(Task).where(col(Task.id).in_(ids)))
+        self.session.commit()
+        return result.rowcount or 0
+
+    # (total, open, done) of the tasks a user created, personal and group.
+    def task_counts(self, owner_id: uuid.UUID) -> tuple[int, int, int]:
+        total = self.count(Task, Task.owner_id == owner_id)
+        done = self.count(Task, Task.owner_id == owner_id, col(Task.is_completed).is_(True))
+        return total, total - done, done
+
+    def groups_of_user(self, user_id: uuid.UUID) -> list[tuple[TaskGroup, str]]:
+        statement = (
+            select(TaskGroup, GroupMember.role)
+            .join(GroupMember, GroupMember.group_id == TaskGroup.id)
+            .where(GroupMember.user_id == user_id)
+            .order_by(TaskGroup.name)
+        )
+        return [(group, role) for group, role in self.session.exec(statement).all()]
+
+    def recent_tasks_of_user(self, user_id: uuid.UUID, limit: int) -> list[tuple[Task, str | None]]:
+        statement = (
+            select(Task, TaskGroup.name)
+            .join(TaskGroup, TaskGroup.id == Task.group_id, isouter=True)
+            .where(Task.owner_id == user_id)
+            .order_by(Task.created_at.desc(), Task.id.desc())
+            .limit(limit)
+        )
+        return [(task, group) for task, group in self.session.exec(statement).all()]
+
+    @staticmethod
+    def _group_statement():
+        members = select(func.count(GroupMember.user_id)).where(GroupMember.group_id == TaskGroup.id).scalar_subquery()
+        tasks = select(func.count(Task.id)).where(Task.group_id == TaskGroup.id).scalar_subquery()
+        return select(TaskGroup, AppUser.email, members, tasks).join(AppUser, AppUser.id == TaskGroup.created_by)
 
     # COUNT(*) of one table with optional filters, used by the lists and the dashboard.
     def count(self, model: type, *filters) -> int:

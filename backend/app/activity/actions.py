@@ -12,6 +12,12 @@ class ActivityAction(str, Enum):
     PASSWORD_CHANGED = "password_changed"
     PASSWORD_CHANGE_FAILED = "password_change_failed"
     PROFILE_UPDATED = "profile_updated"
+    SESSION_REVOKED = "session_revoked"
+    SESSIONS_REVOKED = "sessions_revoked"
+
+    CATEGORY_CREATED = "category_created"
+    CATEGORY_RENAMED = "category_renamed"
+    CATEGORY_DELETED = "category_deleted"
 
     TASK_CREATED = "task_created"
     TASK_UPDATED = "task_updated"
@@ -30,4 +36,15 @@ class ActivityAction(str, Enum):
     ROLE_CHANGED = "role_changed"
     USER_BANNED = "user_banned"
     USER_UNBANNED = "user_unbanned"
+
+    # Hostile or suspicious requests, written by the error handler and the auth checks.
+    AUTH_REJECTED = "auth_rejected"  # a bad, forged or expired token was presented
+    ACCESS_DENIED = "access_denied"  # a valid user tried something they may not do (403)
+    TOKEN_REUSE_DETECTED = "token_reuse_detected"  # a used refresh token came back: probably stolen
+    MEMBER_PERMISSIONS_CHANGED = "member_permissions_changed"
     ADMIN_TASK_DELETED = "admin_task_deleted"
+    ADMIN_TASKS_DELETED = "admin_tasks_deleted"
+    ADMIN_GROUP_DELETED = "admin_group_deleted"
+    ADMIN_SESSIONS_REVOKED = "admin_sessions_revoked"
+    DATA_EXPORTED = "data_exported"
+    ACTIVITY_PURGED = "activity_purged"

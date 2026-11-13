@@ -1,12 +1,13 @@
 # Request and response shapes for the admin endpoints; lists come back as pages with a total, like the task list.
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated, Literal
 
-from pydantic import StringConstraints, computed_field, field_validator
+from pydantic import Field, StringConstraints, computed_field, field_validator
 from sqlmodel import SQLModel
 
-from app.auth.schemas import UserRead
+from app.activity.schemas import ActivityRead
+from app.auth.schemas import SessionRead, UserRead
 from app.tasks.schemas import TaskRead
 
 
@@ -23,6 +24,8 @@ class AdminUserRead(UserRead):
     is_banned: bool
     banned_at: datetime | None = None
     ban_reason: str | None = None
+    last_login_at: datetime | None = None
+    failed_logins_7d: int = 0  # wrong passwords or blocked attempts in the last 7 days
 
     @computed_field
     @property
@@ -30,7 +33,7 @@ class AdminUserRead(UserRead):
         return "banned" if self.is_banned else "active"
 
     # SQLite returns naive datetimes; they are stored as UTC.
-    @field_validator("banned_at")
+    @field_validator("banned_at", "last_login_at")
     @classmethod
     def banned_at_as_utc(cls, value: datetime | None) -> datetime | None:
         return value.replace(tzinfo=timezone.utc) if value is not None and value.tzinfo is None else value
@@ -102,3 +105,52 @@ class AdminStats(SQLModel):
     users: UserStats
     tasks: TaskStats
     groups: GroupStats
+
+
+# Bulk actions: at most BULK_LIMIT ids at once.
+BULK_LIMIT = 50
+BulkIdList = Annotated[list[uuid.UUID], Field(min_length=1, max_length=BULK_LIMIT)]
+
+
+class BulkIds(SQLModel):
+    ids: BulkIdList
+
+
+class BulkBan(BulkIds):
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+
+# affected were changed; skipped were left alone (missing, yourself, another admin, already in that state).
+class BulkResult(SQLModel):
+    affected: int
+    skipped: int
+
+
+class UserTaskCounts(SQLModel):
+    total: int
+    open: int
+    done: int
+
+
+class UserGroupRead(SQLModel):
+    id: uuid.UUID
+    name: str
+    role: str
+
+
+class UserTaskBrief(SQLModel):
+    id: uuid.UUID
+    title: str
+    is_completed: bool
+    due_date: date | None = None
+    group_name: str | None = None
+
+
+# Everything the user drawer shows about one person.
+class AdminUserDetail(SQLModel):
+    user: AdminUserRead
+    tasks: UserTaskCounts
+    groups: list[UserGroupRead]
+    recent_tasks: list[UserTaskBrief]
+    sessions: list[SessionRead]
+    recent_activity: list[ActivityRead]

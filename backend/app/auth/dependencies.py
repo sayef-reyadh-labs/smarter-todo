@@ -30,13 +30,22 @@ def get_current_user(
 ) -> AppUser:
     if credentials is None:
         raise UnauthorizedError("Not authenticated")
+    # The reason goes to the security log (see app/activity/security_log.py); the client always sees the same message.
     try:
         user_id = uuid.UUID(decode_access_token(credentials.credentials)["sub"])
+    except jwt.ExpiredSignatureError:
+        raise UnauthorizedError("Invalid or expired token", code="expired_token")
+    except jwt.InvalidSignatureError:
+        raise UnauthorizedError("Invalid or expired token", code="bad_signature")
+    except jwt.InvalidAlgorithmError:
+        raise UnauthorizedError("Invalid or expired token", code="bad_algorithm")
+    except jwt.DecodeError:
+        raise UnauthorizedError("Invalid or expired token", code="malformed_token")
     except (jwt.PyJWTError, KeyError, ValueError):
-        raise UnauthorizedError("Invalid or expired token")
+        raise UnauthorizedError("Invalid or expired token", code="invalid_token")
     user = UserRepository(session).get(user_id)
     if user is None:
-        raise UnauthorizedError("Invalid or expired token")
+        raise UnauthorizedError("Invalid or expired token", code="unknown_user")
     # Checked on every request, so a ban works even for an access token that has not expired yet.
     if user.is_banned:
         raise ForbiddenError("Account banned")

@@ -41,3 +41,18 @@ class UserRead(SQLModel):
     @classmethod
     def as_utc(cls, value: datetime) -> datetime:
         return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+# One login session (a browser or device); current marks the one making this request.
+class SessionRead(SQLModel):
+    id: uuid.UUID
+    user_agent: str | None = None
+    ip_address: str | None = None
+    started_at: datetime
+    last_used_at: datetime
+    current: bool = False
+
+    @field_validator("started_at", "last_used_at")
+    @classmethod
+    def as_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value

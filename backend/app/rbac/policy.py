@@ -8,12 +8,14 @@ from app.errors import ForbiddenError
 from app.rbac.permissions import Permission
 
 
-# Who is acting. resource_owner_id is set when the action targets one resource that has an owner.
+# Who is acting. resource_owner_id is set when the action targets one resource that has an owner;
+# granted holds permissions that were given to this one person (for example by a group owner).
 @dataclass(frozen=True)
 class Subject:
     user_id: uuid.UUID
     role: str
     resource_owner_id: uuid.UUID | None = None
+    granted: frozenset[Permission] = frozenset()
 
 
 # An extra condition for one permission; it must pass in addition to the role grant.
@@ -43,10 +45,15 @@ class Policy:
 
     def allows(self, subject: Subject, permission: Permission) -> bool:
         role = str(getattr(subject.role, "value", subject.role))
-        granted = permission in self._grants[role]
+        granted = permission in self._grants[role] or permission in subject.granted
         if not granted and permission in self._own_grants[role]:
             granted = subject.resource_owner_id == subject.user_id
         return granted and all(rule(subject) for rule in self._rules[permission])
+
+    # Everything this subject may do in general: the role's grants plus what was given to the person.
+    def permissions_for(self, subject: Subject) -> set[Permission]:
+        role = str(getattr(subject.role, "value", subject.role))
+        return {p for p in self._grants[role] | set(subject.granted) if self.allows(subject, p)}
 
     def authorize(self, subject: Subject, permission: Permission, message: str = "Forbidden") -> None:
         if not self.allows(subject, permission):

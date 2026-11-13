@@ -7,28 +7,31 @@ from fastapi import APIRouter, Query
 from app.activity.actions import ActivityAction
 from app.activity.dependencies import UserActivityDep
 from app.tasks.dependencies import ServiceDep, TaskDep
+from app.tasks.filters import TaskListFiltersDep
 from app.tasks.models import Task
-from app.tasks.schemas import TaskCreate, TaskPage, TaskRead, TaskUpdate
+from app.tasks.schemas import PersonalTaskCreate, PersonalTaskUpdate, TaskPage, TaskRead
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
 
-# Create a task; it starts as not completed.
+# Create a task; it starts as not completed. 422 when category_id is not one of your categories.
 @router.post("", response_model=TaskRead, status_code=HTTPStatus.CREATED)
-def create_task(data: TaskCreate, service: ServiceDep, activity: UserActivityDep) -> Task:
+def create_task(data: PersonalTaskCreate, service: ServiceDep, activity: UserActivityDep) -> Task:
     task = service.create_task(data)
     activity.log(ActivityAction.TASK_CREATED, entity_type="task", entity_id=task.id, detail=task.title)
     return task
 
 
 # List tasks, newest first, with the total so clients know when they reached the end.
+# Filters: q (title or description), category_id, uncategorized, status (open, done, overdue).
 @router.get("", response_model=TaskPage)
 def list_tasks(
     service: ServiceDep,
+    filters: TaskListFiltersDep,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> TaskPage:
-    return service.list_tasks(offset, limit)
+    return service.list_tasks(offset, limit, filters)
 
 
 # Read one task by id, or 404 if it does not exist.
@@ -39,7 +42,7 @@ def get_task(task: TaskDep) -> Task:
 
 # Update only the fields that were sent; the others stay unchanged.
 @router.patch("/{task_id}", response_model=TaskRead)
-def update_task(task: TaskDep, data: TaskUpdate, service: ServiceDep, activity: UserActivityDep) -> Task:
+def update_task(task: TaskDep, data: PersonalTaskUpdate, service: ServiceDep, activity: UserActivityDep) -> Task:
     updated = service.update_task(task, data)
     activity.log(ActivityAction.TASK_UPDATED, entity_type="task", entity_id=updated.id, detail=updated.title)
     return updated

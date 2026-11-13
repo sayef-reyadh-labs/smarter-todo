@@ -5,9 +5,11 @@ from http import HTTPStatus
 class AppError(Exception):
     status_code = HTTPStatus.INTERNAL_SERVER_ERROR
 
-    def __init__(self, message: str) -> None:
+    # code is a short machine-readable reason (for example "bad_signature"); it is only logged, never sent to the client.
+    def __init__(self, message: str, code: str | None = None) -> None:
         super().__init__(message)
         self.message = message
+        self.code = code
 
 
 class BadRequestError(AppError):
@@ -16,6 +18,13 @@ class BadRequestError(AppError):
 
 class UnauthorizedError(AppError):
     status_code = HTTPStatus.UNAUTHORIZED
+
+
+# A refresh token that was already used came back: whoever holds it may have stolen it.
+class TokenReuseError(UnauthorizedError):
+    def __init__(self, message: str, user_id=None) -> None:
+        super().__init__(message, code="token_reuse")
+        self.user_id = user_id
 
 
 class ForbiddenError(AppError):

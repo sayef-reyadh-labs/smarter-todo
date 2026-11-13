@@ -4,9 +4,13 @@ from http import HTTPStatus
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+
+from app.activity.security_log import log_security_event
 
 from app.admin.router import router as admin_router
 from app.auth.router import router as auth_router
+from app.categories.router import router as categories_router
 from app.config import BACKEND_DIR
 from app.errors import AppError
 from app.groups.router import router as groups_router
@@ -26,12 +30,16 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(admin_router)
 app.include_router(tasks_router)
+app.include_router(categories_router)
 app.include_router(groups_router)
 
 
 # Services raise AppError subclasses (400, 401, 403, 404, 409, 422, 429); the status code comes from the class.
 @app.exception_handler(AppError)
 async def app_error(request: Request, exc: AppError) -> JSONResponse:
+    # Forged tokens, reused refresh tokens and denied access are written to the activity log (never breaks the answer).
+    if exc.status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
+        await run_in_threadpool(log_security_event, request, exc)
     headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == HTTPStatus.UNAUTHORIZED else None
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message}, headers=headers)
 
