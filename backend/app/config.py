@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str | None = None
     # Secret mixed into every password before hashing; keep it out of the database. Required on Vercel.
     PASSWORD_PEPPER: str | None = None
-    ACCESS_TOKEN_MINUTES: int = 15
+    ACCESS_TOKEN_MINUTES: int = 5
     REFRESH_TOKEN_DAYS: int = 7
     # Activity log entries older than this are deleted automatically; 0 keeps them forever.
     ACTIVITY_RETENTION_DAYS: int = 90

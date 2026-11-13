@@ -29,9 +29,35 @@ const ADMIN = "/api/v1/admin"
 const GROUPS = "/api/v1/groups"
 const CATEGORIES = "/api/v1/categories"
 
-// The access token lives in memory only (not localStorage), so scripts on the page cannot steal it.
+// The access token is kept in localStorage with its expiry, so a reload or a second tab can reuse it until it runs out.
+const TOKEN_KEY = "smarter_todo_access_token"
 let accessToken: string | null = null
 let sessionExpiredHandler: (() => void) | null = null
+
+const readStoredToken = (): string | null => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOKEN_KEY) ?? "null") as { token: string; expiresAt: number } | null
+    if (saved && typeof saved.token === "string" && saved.expiresAt > Date.now()) return saved.token
+  } catch {
+    // unreadable value: treat as no token
+  }
+  localStorage.removeItem(TOKEN_KEY)
+  return null
+}
+
+// Remembers a new token for expires_in seconds, or forgets it when called with null.
+const storeToken = (token: TokenResponse | null) => {
+  accessToken = token?.access_token ?? null
+  if (token) localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: token.access_token, expiresAt: Date.now() + token.expires_in * 1000 }))
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+accessToken = readStoredToken()
+
+// Another tab logged in, refreshed or logged out: follow it.
+window.addEventListener("storage", (event) => {
+  if (event.key === TOKEN_KEY) accessToken = readStoredToken()
+})
 
 // FastAPI sends detail as a string (404) or a list of {loc, msg} (422).
 const errorMessage = async (res: Response): Promise<string> => {
@@ -64,7 +90,7 @@ const refreshAccessToken = (): Promise<boolean> => {
     try {
       const res = await send(`${AUTH}/refresh`, { method: "POST" })
       if (!res.ok) return false
-      accessToken = ((await res.json()) as TokenResponse).access_token
+      storeToken((await res.json()) as TokenResponse)
       return true
     } catch {
       return false
@@ -82,7 +108,7 @@ const sendWithRefresh = async (url: string, options?: RequestInit): Promise<Resp
     if (await refreshAccessToken()) {
       res = await send(url, options)
     } else {
-      accessToken = null
+      storeToken(null)
       sessionExpiredHandler?.()
     }
   }
@@ -131,11 +157,18 @@ export const apiService = {
 
   login: async (data: LoginInput) => {
     const token = await post<TokenResponse>(`${AUTH}/login`, data)
-    accessToken = token.access_token
+    storeToken(token)
   },
 
-  // Page reload: the memory is empty but the cookie may still be valid.
+  // Page reload: use the stored token if it is still valid, otherwise swap the cookie for a new one.
   restoreSession: async (): Promise<User | null> => {
+    if (accessToken) {
+      try {
+        return await request<User>(ME)
+      } catch {
+        return null
+      }
+    }
     if (!(await refreshAccessToken())) return null
     return request<User>(ME)
   },
@@ -144,7 +177,7 @@ export const apiService = {
     try {
       await post<void>(`${AUTH}/logout`)
     } finally {
-      accessToken = null
+      storeToken(null)
     }
   },
 
@@ -163,7 +196,7 @@ export const apiService = {
   // Ends every session, this one too; the caller then drops the local login.
   revokeAllSessions: async () => {
     await post<void>(`${AUTH}/sessions/revoke-all`)
-    accessToken = null
+    storeToken(null)
   },
 
   getTasks: (offset = 0, limit = PAGE_SIZE, filters: TaskListFilters = {}) =>

@@ -501,7 +501,7 @@ Content-Type: application/json
 200 OK
 Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth; Max-Age=604800
 
-{ "access_token": "eyJhbGciOi...", "token_type": "bearer", "expires_in": 900 }
+{ "access_token": "eyJhbGciOi...", "token_type": "bearer", "expires_in": 300 }
 ```
 
 ### 6.4 Error format
@@ -549,7 +549,7 @@ The service signals a broken business rule (a due date in the past) by raising `
 | `POSTGRES_URL` | not set | Set by the Supabase integration on Vercel; used when `DATABASE_URL` is not set | MVP |
 | `JWT_SECRET` | optional; without it a fixed development value is used | Required: a random 32+ byte secret (`python -c "import secrets; print(secrets.token_urlsafe(48))"`); logging in fails without it | Beta |
 | `PASSWORD_PEPPER` | optional; without it a fixed development value is used | Required: a random 32+ byte secret, generated like `JWT_SECRET`; never change it once users exist (it would invalidate their passwords) | Beta |
-| `ACCESS_TOKEN_MINUTES` | `15` | `15` | Beta |
+| `ACCESS_TOKEN_MINUTES` | `5` | `5` | Beta |
 | `REFRESH_TOKEN_DAYS` | `7` | `7` | Beta |
 | `ACTIVITY_RETENTION_DAYS` | `90` | `90` (`0` keeps the log forever) | Beta |
 | `MIGRATION_DATABASE_URL` | not needed | Not on Vercel. Used only on a developer machine to run Alembic against Supabase (session pooler, port `5432`) | MVP |
@@ -584,13 +584,14 @@ flowchart LR
 
 | Token | Format | Lifetime | Where it lives |
 |---|---|---|---|
-| Access token | JWT, HS256, claims `sub` (user id), `role`, `iat`, `exp` | 15 min | Frontend memory; sent as `Authorization: Bearer` |
+| Access token | JWT, HS256, claims `sub` (user id), `role`, `iat`, `exp` | 5 min | Browser `localStorage` (`smarter_todo_access_token`, stored with its expiry and shared by tabs); sent as `Authorization: Bearer` |
 | Refresh token | Random 32 bytes (`secrets.token_urlsafe`) | 7 days | `refresh_token` cookie (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`); DB keeps only its SHA-256 hash |
 
 - **Refresh rotation:** each refresh revokes the old token and issues a new one. If a revoked token is used again, all of that user's refresh tokens are revoked (it was probably stolen).
-- **Logout:** revokes the current refresh token and clears the cookie. The access token simply expires within 15 minutes.
+- **Logout:** revokes the current refresh token and clears the cookie. The access token simply expires within 5 minutes.
+- **Why `localStorage`:** the token survives reloads and is shared by tabs without an extra `/auth/refresh` call. The cost is that a script injected into the page (XSS) can read it, which is why it lives only 5 minutes and the refresh token stays in the `HttpOnly` cookie. Logging out removes it; `services/api.ts` ignores a stored token whose expiry has passed.
 - The `role` claim is only informational; permission checks always use the role loaded from the database, so a role change applies on the next request. Group permissions are not in the token either: they live in `group_member.granted_permissions` and are read per request, so the owner can revoke a grant instantly (a JWT cannot be revoked before it expires).
-- **Sessions:** every login creates a `session_id` that stays the same when the refresh token rotates. Revoking a session revokes its refresh tokens; its access token stays valid for up to 15 minutes. Reusing a revoked refresh token triggers reuse detection only if its session is still live, so logging out a device is not reported as theft.
+- **Sessions:** every login creates a `session_id` that stays the same when the refresh token rotates. Revoking a session revokes its refresh tokens; its access token stays valid for up to 5 minutes. Reusing a revoked refresh token triggers reuse detection only if its session is still live, so logging out a device is not reported as theft.
 
 ### 10.2 Passwords and login lockout
 

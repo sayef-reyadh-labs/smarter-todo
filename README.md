@@ -89,7 +89,7 @@ flowchart LR
     call --> me["Server finds the user<br/>and shows only their tasks"]
 ```
 
-The access token (15 minutes) is kept in memory and sent with each request. The refresh token (7 days) is a random value in an `HttpOnly` cookie; when the access token expires, `services/api.ts` swaps it for a new pair without asking you to log in again.
+The access token (5 minutes) is kept in `localStorage` together with its expiry and sent with each request. The refresh token (7 days) is a random value in an `HttpOnly` cookie; when the access token expires, `services/api.ts` swaps it for a new pair without asking you to log in again.
 
 ## Requirements
 
@@ -181,7 +181,7 @@ MIGRATION_DATABASE_URL="<supabase session pooler url>" alembic upgrade head    #
 ### Categories, sessions and security events
 
 - **Categories** are private to each user (`/api/v1/categories`). Deleting a category keeps its tasks, which become "No category". Group tasks have no category.
-- **Sessions** live at `/api/v1/auth/sessions` (list, revoke one, revoke others, revoke all). The refresh cookie is only sent to `/api/v1/auth`, so these routes sit there. A logged-out device stays usable until its access token expires (15 minutes) but cannot renew it.
+- **Sessions** live at `/api/v1/auth/sessions` (list, revoke one, revoke others, revoke all). The refresh cookie is only sent to `/api/v1/auth`, so these routes sit there. A logged-out device stays usable until its access token expires (5 minutes) but cannot renew it.
 - **Group permissions** are stored per member in the database, not in the JWT, so the owner's change applies on the next request. The JWT carries only `sub`, `role`, `iat` and `exp`; the server still reads the real role and ban state from the database on every request.
 - **Security events** (`auth_rejected`, `access_denied`, `token_reuse_detected`) record the IP address and user agent. Expired or missing tokens are not logged, at most 30 events per IP per minute are stored, and control characters are stripped from logged text. Admins see them under **Admin → Activity** (hostile actions in red) and **Admin → Security** (failed logins and rejected tokens by IP and account).
 - **Exports** are CSV files (UTF-8 with BOM, cells starting with `=`, `+`, `-` or `@` are escaped) capped at 10,000 rows.
@@ -207,7 +207,7 @@ Locally nothing needs to be set: the app uses the SQLite file `backend/smarter_t
 | `POSTGRES_URL` | MVP (production) | Set automatically by the Supabase integration on Vercel. Used when `DATABASE_URL` is not set; `postgres://` and the Supabase-only `supa=` parameter are handled for you. |
 | `JWT_SECRET` | Auth (production) | Long random string, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"`. **Required on Vercel** (logging in fails without it); locally a fixed development value is used. |
 | `PASSWORD_PEPPER` | Auth (production) | Long random string, same generator as `JWT_SECRET`. **Required on Vercel**; mixed into every password before hashing, so a leaked database alone cannot be cracked. Never change it once users exist, or their passwords stop working. Locally a fixed development value is used. |
-| `ACCESS_TOKEN_MINUTES` | Auth | Default `15` |
+| `ACCESS_TOKEN_MINUTES` | Auth | Default `5` |
 | `REFRESH_TOKEN_DAYS` | Auth | Default `7` |
 | `ACTIVITY_RETENTION_DAYS` | Activity log | Default `90`; `0` keeps the log forever |
 | `MIGRATION_DATABASE_URL` | Migrations only | Supabase session pooler URL (port `5432`) used when you run Alembic against the hosted database. Not set on Vercel. |
