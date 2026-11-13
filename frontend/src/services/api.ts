@@ -33,6 +33,8 @@ const CATEGORIES = "/api/v1/categories"
 const TOKEN_KEY = "smarter_todo_access_token"
 // A 401 in the last seconds before the expiry is treated as plain expiry (clock and network delay).
 const EXPIRY_MARGIN_MS = 30_000
+// The text the backend answers with (403) for a banned account.
+const BANNED_MESSAGE = "Account banned"
 let accessToken: string | null = null
 let accessExpiresAt = 0
 let sessionExpiredHandler: (() => void) | null = null
@@ -142,6 +144,11 @@ const sendWithRefresh = async (url: string, options?: RequestInit): Promise<Resp
       storeToken(null)
       sessionExpiredHandler?.()
     }
+  }
+  // The server checks the ban on every request, so the first call after a ban lands here and the user is signed out at once.
+  if (res.status === HttpStatus.Forbidden && !url.startsWith(AUTH) && (await errorMessage(res.clone())) === BANNED_MESSAGE) {
+    await endSession()
+    throw new Error("Your account has been banned. Contact an administrator.")
   }
   if (!res.ok) throw new Error(await errorMessage(res))
   return res
