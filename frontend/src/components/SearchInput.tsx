@@ -1,16 +1,17 @@
 // Text box that waits until the user stops typing before it reports the text.
 import { SearchOutlined } from "@ant-design/icons"
-import { Input } from "antd"
-import { useEffect, useState } from "react"
+import { Input, type InputRef } from "antd"
+import { useEffect, useState, type Ref } from "react"
 
 type Props = {
   placeholder: string
   onSearch: (text: string | undefined) => void
   initial?: string
   width?: number
+  inputRef?: Ref<InputRef>
 }
 
-export function SearchInput({ placeholder, onSearch, initial = "", width = 220 }: Props) {
+export function SearchInput({ placeholder, onSearch, initial = "", width = 220, inputRef }: Props) {
   const [text, setText] = useState(initial)
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export function SearchInput({ placeholder, onSearch, initial = "", width = 220 }
 
   return (
     <Input
+      ref={inputRef}
       allowClear
       prefix={<SearchOutlined />}
       placeholder={placeholder}

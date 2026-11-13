@@ -1,4 +1,5 @@
-// Centered card for the login and signup forms: title, optional error, the form, and a footer link.
+// Centered card for the login and signup forms: logo, title, optional error, the form, and a footer link.
+import { CheckSquareOutlined } from "@ant-design/icons"
 import { Alert, Card, Typography } from "antd"
 import type { ReactNode } from "react"
 
@@ -12,7 +13,10 @@ type Props = {
 
 export function AuthCard({ title, subtitle, error, footer, children }: Props) {
   return (
-    <Card style={{ maxWidth: 440, margin: "24px auto 0" }} styles={{ body: { padding: 32 } }}>
+    <Card className="auth-card" style={{ maxWidth: 440, margin: "24px auto 0" }} styles={{ body: { padding: 32 } }}>
+      <div className="auth-logo" aria-hidden="true">
+        <CheckSquareOutlined />
+      </div>
       <Typography.Title level={2} style={{ marginTop: 0 }}>
         {title}
       </Typography.Title>

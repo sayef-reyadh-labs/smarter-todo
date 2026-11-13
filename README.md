@@ -20,6 +20,7 @@ A task app for students: keep your own to-do list, and share task lists with you
 - Security: Argon2 password hashing with a salt and a server-side pepper, login lockout, secure cookies, security headers
 
 **Added after Beta**
+- Polished home page: greeting, summary tiles (open, done, overdue), task cards with a status accent and friendly due dates, press `/` to search, dark mode
 - Categories: group your personal tasks, filter by category (or "No category"), by status (open, done, overdue) and search by text
 - Sessions: the profile page lists every device you are logged in on; log out one device, all other devices, or everywhere
 - Group permissions: the group owner chooses what each member may do (create, edit, assign tasks); only the owner can delete tasks, rename the group and manage members
