@@ -30,7 +30,7 @@ This document shows the sections your final report must have and what each secti
 - Use the same requirement IDs (FR-AUTH-01 and so on) in the requirements, the tests and the screenshots.
 - Never show real passwords, secret keys or full tokens in screenshots or text (blur or mask them).
 - Do not write test account user IDs and passwords in this file. GitHub flags passwords in a repository. Put them only in the PDF report (Appendix).
-- Submit the report twice: REPORT.md in the repository and a PDF with the screenshots.
+- Submit the report twice: FINAL_REPORT.md in the repository and a PDF with the screenshots.
 
 ## Table of Contents
 Insert an automatic table of contents (Insert, Table of contents). Add a List of Figures and Screenshots with the number, caption and page of each.
