@@ -29,6 +29,7 @@ This document shows the sections your final report must have and what each secti
 - Number every diagram, table and screenshot (Figure 1, Table 1, S1) and refer to them in the text.
 - Use the same requirement IDs (FR-AUTH-01 and so on) in the requirements, the tests and the screenshots.
 - Never show real passwords, secret keys or full tokens in screenshots or text (blur or mask them).
+- Do not write test account user IDs and passwords in this file. GitHub flags passwords in a repository. Put them only in the PDF report (Appendix).
 - Submit the report twice: REPORT.md in the repository and a PDF with the screenshots.
 
 ## Table of Contents
@@ -51,10 +52,10 @@ One sentence for each major addition, named as it appears in the app:
 - Admin dashboard (users, content, activity log, security view, exports)
 - Audit logging, brute-force protection, deployment on Vercel
 
-### 1.3 Live links and test accounts
-A table with: GitHub repository, Vercel frontend, API, API docs, video demo, and the seeded demo accounts (email, role, where to find the password). Use demo data only.
+### 1.3 Live links
+A table with: GitHub repository, Vercel frontend, API, API docs and video demo. Do not put the test account user IDs and passwords here: write them in the PDF report (Appendix), because GitHub flags passwords committed to a repository.
 
-*[Table 1: links and accounts]*
+*[Table 1: links]*
 
 ## Part A. Product Requirements (PRD)
 Length: two to three pages. This part says what the product is for, not how it is built.
@@ -255,7 +256,7 @@ The output of the automated tests:
 ## Part E. Project Management and Conclusion
 
 ### E1. How to Run, Seed and Test
-Step by step: prerequisites, the environment file (variable names with example values), and the commands for the backend, frontend, migrations, seed script and tests. End with how to log in with the seeded accounts. Someone who has never seen the project must be able to follow it.
+Step by step: prerequisites, the environment file (variable names with example values), and the commands for the backend, frontend, migrations, seed script and tests. End with how to log in with the seeded accounts: name the roles (admin and user) and say that the user IDs and passwords are in the PDF report (Appendix), never in this file. Someone who has never seen the project must be able to follow it.
 
 ### E2. GitHub Work
 A table of the issues and pull requests for each major feature (JWT, RBAC, admin dashboard and others): link, title and what it delivered. Say which commits are yours and how the work was divided over time.
@@ -274,4 +275,6 @@ A table of every library, tutorial, document and tool you used (name, version or
 *[Table: sources, libraries and tools]*
 
 ## Appendix. Test Accounts and Video Demo
-The seeded demo accounts (email and role), where the passwords are written, and the link to the video demo (5 to 8 minutes on the deployed URL).
+The link to the video demo (5 to 8 minutes on the deployed URL).
+
+**Test accounts: add them only in the PDF report.** Write the user ID, password and role of every seeded demo account (at least 2 admins and 3 normal users) and the name of the group with mixed permissions in the Appendix of the PDF. Never write the user IDs or passwords in this Markdown file, the README or anywhere else in the repository: GitHub flags them as leaked credentials. Use demo data only.
