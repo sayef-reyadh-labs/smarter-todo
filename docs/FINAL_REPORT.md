@@ -99,7 +99,7 @@ Tables grouped by area, each requirement written as one sentence beginning 'The 
 *[Table 5 to Table 8: functional requirements by area]*
 
 ### B3. Non-Functional Requirements
-Measurable requirements in a table: security (secrets in environment variables, generic login errors), performance (pagination limits, response time target), usability (responsive, loading and error states), reliability (data persists after a restart), maintainability (one RBAC module, automated tests) and operations (migrations from scratch, seed script).
+Measurable requirements in a table: security (secrets in environment variables, generic login errors), performance (pagination limits, response time target), usability (responsive, loading and error states), reliability (data persists after a restart) and maintainability (one RBAC module, automated tests).
 
 *[Table 9: non-functional requirements]*
 
@@ -134,7 +134,7 @@ One table linking each requirement to the endpoint or screen that implements it,
 Length: six to nine pages. This part says how the system is built. A reader must be able to rebuild it from this part.
 
 ### C1. Technology Stack
-A table: component, technology, version, reason for choosing it (frontend, UI library, backend, database, ORM, migrations, password hashing, JWT library, testing, hosting).
+A table: component, technology, version, reason for choosing it (frontend, UI library, backend, database, ORM, password hashing, JWT library, testing, hosting).
 
 *[Table 16: technology stack]*
 
@@ -195,16 +195,13 @@ A table of threats, the defence and where it is in the code. Cover at least: pas
 
 *[Table: threat, defence, file or module]*
 
-### C10. Database Migrations and Seed Data
-List the migrations in order with one line each, the commands to build the database from scratch, what the seed script creates (admins, users, groups with mixed permissions, sample data) and how to reset the data.
-
-### C11. Deployment on Vercel
+### C10. Deployment on Vercel
 Describe the Vercel projects (frontend and API), the build settings and rewrites, how the frontend finds the API, the hosted database, and the names of all environment variables (never the values). Explain how to redeploy.
 
 *[Diagram: deployment layout]*
 *[Table: environment variable names and what each is for]*
 
-### C12. Testing
+### C11. Testing
 The test strategy (automated API tests, manual tests on the live site), how to run the tests, and a results table: test name, requirement it checks, result. Include the tests for token expiry and tampering, ownership, the group permission matrix, the admin rules and lockout.
 
 *[Table: tests and results]*
@@ -255,8 +252,8 @@ The output of the automated tests:
 
 ## Part E. Project Management and Conclusion
 
-### E1. How to Run, Seed and Test
-Step by step: prerequisites, the environment file (variable names with example values), and the commands for the backend, frontend, migrations, seed script and tests. End with how to log in with the seeded accounts: name the roles (admin and user) and say that the user IDs and passwords are in the PDF report (Appendix), never in this file. Someone who has never seen the project must be able to follow it.
+### E1. How to Run and Test
+Step by step: prerequisites, the environment file (variable names with example values), and the commands for the backend, frontend and tests. End with how to log in with the test accounts: name the roles (admin and user) and say that the user IDs and passwords are in the PDF report (Appendix), never in this file. Someone who has never seen the project must be able to follow it.
 
 ### E2. GitHub Work
 A table of the issues and pull requests for each major feature (JWT, RBAC, admin dashboard and others): link, title and what it delivered. Say which commits are yours and how the work was divided over time.
@@ -277,4 +274,4 @@ A table of every library, tutorial, document and tool you used (name, version or
 ## Appendix. Test Accounts and Video Demo
 The link to the video demo (5 to 8 minutes on the deployed URL).
 
-**Test accounts: add them only in the PDF report.** Write the user ID, password and role of every seeded demo account (at least 2 admins and 3 normal users) and the name of the group with mixed permissions in the Appendix of the PDF. Never write the user IDs or passwords in this Markdown file, the README or anywhere else in the repository: GitHub flags them as leaked credentials. Use demo data only.
+**Test accounts: add them only in the PDF report.** Write the user ID, password and role of every demo account (at least 2 admins and 3 normal users) and the name of the group with mixed permissions in the Appendix of the PDF. Never write the user IDs or passwords in this Markdown file, the README or anywhere else in the repository: GitHub flags them as leaked credentials. Use demo data only.
