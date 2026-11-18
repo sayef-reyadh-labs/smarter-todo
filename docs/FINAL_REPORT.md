@@ -274,4 +274,4 @@ A table of every library, tutorial, document and tool you used (name, version or
 ## Appendix. Test Accounts and Video Demo
 The link to the video demo (5 to 8 minutes on the deployed URL).
 
-**Test accounts: add them only in the PDF report.** Write the user ID, password and role of every demo account (at least 2 admins and 3 normal users) and the name of the group with mixed permissions in the Appendix of the PDF. Never write the user IDs or passwords in this Markdown file, the README or anywhere else in the repository: GitHub flags them as leaked credentials. Use demo data only.
+**Test accounts: add them only in the PDF report.** Write the user ID, password and role of every demo account (at least 2 admins and 3 normal users) and the group with mixed permissions (group name, owner and each member's permissions) in the Appendix of the PDF. Never write the user IDs or passwords in this Markdown file, the README or anywhere else in the repository: GitHub flags them as leaked credentials. Use demo data only.
